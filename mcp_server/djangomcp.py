@@ -252,7 +252,7 @@ class DjangoMCP(FastMCP):
     def register_drf_list_tool(self, view_class: type(GenericAPIView), name=None, instructions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
-        async def _dumb_list(body: dict):
+        async def _dumb_list():
             pass
 
         tool = self._tool_manager.add_tool(
@@ -261,9 +261,6 @@ class DjangoMCP(FastMCP):
             description=instructions or view_class.__doc__
         )
         tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class))
-
-        # Extract schema for a specific serializer manually
-        # tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
 
     def register_drf_update_tool(self, view_class: type(GenericAPIView), name=None, instructions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -614,7 +611,7 @@ class _DRFListAPIViewCallerTool:
         self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
                                        handle_exception=raise_exception)
 
-    def __call__(self, body: dict):
+    def __call__(self):
         # Create a request
         request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "GET", id=id)
 
