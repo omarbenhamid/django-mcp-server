@@ -23,7 +23,7 @@ from asgiref.compatibility import guarantee_single_callable
 from asgiref.wsgi import WsgiToAsgi
 from mcp.types import AnyFunction, ToolAnnotations
 from rest_framework.generics import GenericAPIView
-from rest_framework.mixins import RetrieveModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
+from rest_framework.mixins import RetrieveModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin
 from rest_framework.serializers import Serializer
 from starlette.types import Scope, Receive, Send
 from starlette.datastructures import Headers
@@ -248,6 +248,22 @@ class DjangoMCP(FastMCP):
 
         # Extract schema for a specific serializer manually
         tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
+
+    def register_drf_list_tool(self, view_class: type(GenericAPIView), name=None, instructions=None):
+        assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
+
+        async def _dumb_list(body: dict):
+            pass
+
+        tool = self._tool_manager.add_tool(
+            fn=_dumb_list,
+            name=name or f"{view_class.__name__}_ListTool",
+            description=instructions or view_class.__doc__
+        )
+        tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class))
+
+        # Extract schema for a specific serializer manually
+        # tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
 
     def register_drf_update_tool(self, view_class: type(GenericAPIView), name=None, instructions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -586,6 +602,30 @@ class _DRFCreateAPIViewCallerTool:
             raise
 
 
+class _DRFListAPIViewCallerTool:
+    def __init__(self, mcp_server, view_class):
+        if not issubclass(view_class, ListModelMixin):
+            raise ValueError(f"{view_class} must be a subclass of DRF ListModelMixin")
+        self.mcp_server = mcp_server
+        self.view_class = view_class
+        def raise_exception(exp):
+            raise exp
+        # Disable built in tauth
+        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
+                                       handle_exception=raise_exception)
+
+    def __call__(self, body: dict):
+        # Create a request
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "GET", id=id)
+
+        # Create the view
+        try:
+            return self.view(request).data
+        except:
+            logger.exception("Error in DRF tool invocation")
+            raise
+
+
 class _DRFUpdateAPIViewCallerTool:
     def __init__(self, mcp_server, view_class):
         if not issubclass(view_class, UpdateModelMixin):
@@ -649,6 +689,25 @@ def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
         (server or global_mcp_server).register_drf_create_tool(view_class, name=name, instructions=instructions)
+        return view_class
+
+    if args:
+        decorator(args[0])
+    else:
+        return decorator
+
+
+def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
+    """
+    Function or Decorator to register a DRF ListModelMixin view as a MCP Toolset.
+
+    :param instructions: Instructions to provide to the MCP client.
+    :param server: The server to use, if not set, the global one will be used.
+    :return:
+    """
+    assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
+    def decorator(view_class):
+        (server or global_mcp_server).register_drf_list_tool(view_class, name=name, instructions=instructions)
         return view_class
 
     if args:
