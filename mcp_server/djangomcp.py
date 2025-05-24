@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 from collections import defaultdict
-from functools import cached_property
 from importlib import import_module
 from typing import Any, TYPE_CHECKING
 
@@ -12,22 +11,15 @@ import anyio
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db.models import QuerySet, Model, TextField, CharField
-from mcp.server import FastMCP, Server
-from mcp.server.fastmcp import Context
-from mcp.server.sse import SseServerTransport
-from mcp.server.streamable_http import StreamableHTTPServerTransport
+from mcp.server import FastMCP
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from django.http import HttpResponse, HttpRequest
-from asgiref.compatibility import guarantee_single_callable
-from asgiref.wsgi import WsgiToAsgi
-from mcp.types import AnyFunction, ToolAnnotations
-from rest_framework.mixins import RetrieveModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin
+from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin
 from rest_framework.serializers import Serializer
 from starlette.types import Scope, Receive, Send
 from starlette.datastructures import Headers
 from io import BytesIO
-import asyncio
 
 from mcp_server.agg_pipeline_ql import apply_json_mango_query, generate_json_schema, \
     PIPELINE_DSL_SPEC

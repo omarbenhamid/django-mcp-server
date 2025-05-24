@@ -189,9 +189,11 @@ and `/path/to/your/project/` is the path to your django project.
 
 ### Publish Django Rest Framework APIs as MCP Tools
 
-You can use `drf_publish_create_mcp_tool` / `drf_publish_update_mcp_tool` / `drf_publish_delete_mcp_tool` as
-annotations or method calls to register DRF CreateModelMixin / UpdateModelMixin / DestroyModelMixin based views
-to MCP tools seamlessly. Django MCP Server will generate the schemas to allow MCP Clients to use them.
+You can use `drf_publish_create_mcp_tool` / `drf_publish_update_mcp_tool` / `drf_publish_delete_mcp_tool` / 
+`drf_publish_list_mcp_tool` as annotations or method calls to register DRF CreateModelMixin / UpdateModelMixin 
+/ DestroyModelMixin / ListModelMixin based views  to MCP tools seamlessly. Django MCP Server will generate the schemas
+to allow MCP Clients to use them.
+
 
 ```python
 from mcp_server import drf_publish_create_mcp_tool
