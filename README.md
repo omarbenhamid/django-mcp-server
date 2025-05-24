@@ -194,6 +194,8 @@ You can use `drf_publish_create_mcp_tool` / `drf_publish_update_mcp_tool` / `drf
 / DestroyModelMixin / ListModelMixin based views  to MCP tools seamlessly. Django MCP Server will generate the schemas
 to allow MCP Clients to use them.
 
+**NOTE** in some *older DRF versions* schema generation is not supported out of the box, you should then provide to the registration
+annotation the 
 
 ```python
 from mcp_server import drf_publish_create_mcp_tool

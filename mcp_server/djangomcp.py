@@ -227,7 +227,16 @@ class DjangoMCP(FastMCP):
     def register_mcptoolset_cls(self, cls):
         cls()._add_tools_to(self._tool_manager)
 
-    def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
+                                 body_schema:dict=None):
+        """
+        Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
+        :param view_class: The DRF view subclassing CreateModelMixin.
+        :param name: the tool name, can be auto gnerated
+        :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
+        :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :return:
+        """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_create(body: dict):
@@ -240,8 +249,19 @@ class DjangoMCP(FastMCP):
         )
         tool.fn = sync_to_async(_DRFCreateAPIViewCallerTool(self, view_class))
 
-        # Extract schema for a specific serializer manually
-        tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
+        if body_schema is not None:
+            tool.parameters['properties']['body'] = body_schema
+        else:
+            try:
+                # Extract schema for a specific serializer manually
+                tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
+            except AttributeError:
+                logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
+                                "to the tool registration")
+                raise
+            except Exception:
+                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
+                raise
 
     def register_drf_list_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -256,7 +276,16 @@ class DjangoMCP(FastMCP):
         )
         tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class))
 
-    def register_drf_update_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_update_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
+                                 body_schema:dict=None):
+        """
+        Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
+        :param view_class: The DRF view subclassing CreateModelMixin.
+        :param name: the tool name, can be auto gnerated
+        :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
+        :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :return:
+        """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_update(id, body: dict):
@@ -270,7 +299,19 @@ class DjangoMCP(FastMCP):
         tool.fn = sync_to_async(_DRFUpdateAPIViewCallerTool(self, view_class))
 
         # Extract schema for a specific serializer manually
-        tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
+        if body_schema is not None:
+            tool.parameters['properties']['body'] = body_schema
+        else:
+            try:
+                # Extract schema for a specific serializer manually
+                tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
+            except AttributeError:
+                logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
+                                "to the tool registration")
+                raise
+            except Exception:
+                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
+                raise
 
     def register_drf_destroy_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -669,17 +710,20 @@ class _DRFDeleteAPIViewCallerTool:
             raise
 
 
-def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None, body_schema:dict=None):
     """
     Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
+    :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_create_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_create_tool(view_class, name=name, instructions=instructions,
+                                                               body_schema=body_schema)
         return view_class
 
     if args:
@@ -707,17 +751,20 @@ def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
         return decorator
 
 
-def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None,
+                                 body_schema:dict=None):
     """
     Function or Decorator to register a DRF UpdateModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
+    :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_update_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_update_tool(view_class, name=name, instructions=instructions,
+                                                               body_schema=body_schema)
         return view_class
 
     if args:
