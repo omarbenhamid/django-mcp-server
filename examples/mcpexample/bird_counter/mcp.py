@@ -1,11 +1,11 @@
 from rest_framework.serializers import ModelSerializer
 
 from mcp_server import MCPToolset, drf_serialize_output, drf_publish_create_mcp_tool, drf_publish_update_mcp_tool, \
-    drf_publish_destroy_mcp_tool
+    drf_publish_destroy_mcp_tool, drf_publish_list_mcp_tool
 from mcp_server import ModelQueryToolset
 from .models import Bird, Location, City
 from .serializers import BirdSerializer
-from .views import LocationAPIView, LocationAPIUpdateView
+from .views import LocationAPIView, LocationAPIUpdateView, LocationAPIListView
 
 
 class BirdQuery(ModelQueryToolset):
@@ -69,3 +69,5 @@ drf_publish_create_mcp_tool(LocationAPIView)
 drf_publish_update_mcp_tool(LocationAPIUpdateView)
 
 drf_publish_destroy_mcp_tool(LocationAPIUpdateView, instructions="A tool to delete a location")
+
+drf_publish_list_mcp_tool(LocationAPIListView, instructions="A tool to list all locations")
