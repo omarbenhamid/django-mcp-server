@@ -225,7 +225,7 @@ class DjangoMCP(FastMCP):
         self._mcp_server.instructions = inst
 
     def register_mcptoolset_cls(self, cls):
-        cls()._add_tools_to(self._tool_manager)
+        return cls()._add_tools_to(self._tool_manager)
 
     def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
                                  body_schema:dict=None):
@@ -396,6 +396,12 @@ class MCPToolset(metaclass=ToolsetMeta):
             self.mcp_server = global_mcp_server
 
     def _add_tools_to(self, tool_manager):
+        """
+        ADd tools to the manager
+        :param tool_manager:
+        :return: list of tools added
+        """
+        ret = []
         # ITerate all the methods whose name does not start with _ and register them with mcp_server.add_tool
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if not callable(method) or name.startswith("_"): continue
@@ -406,6 +412,8 @@ class MCPToolset(metaclass=ToolsetMeta):
             else:
                 forward_context = True
             tool.fn = _ToolsetMethodCaller(self.__class__, name, tool.context_kwarg, forward_context)
+            ret.append(tool)
+        return ret
 
 
 class ModelQueryToolset(metaclass=ToolsetMeta):
@@ -522,6 +530,7 @@ class ModelQueryToolset(metaclass=ToolsetMeta):
 
     def _add_tools_to(self, tool_manager):
         # ITerate all the methods whose name does not start with _ and register them with mcp_server.add_tool
+        ret = []
         method = self.query
         name = self.name or f"{self.__class__.__name__}_{self.model._meta.model_name}Query"
 
@@ -533,6 +542,7 @@ class ModelQueryToolset(metaclass=ToolsetMeta):
 
         tool.context_kwarg = "_context"
         tool.fn = _ToolsetMethodCaller(self.__class__, "query", "_context", False)
+        return [tool]
 
 
 class GetServerInstructionTools:
@@ -549,9 +559,11 @@ def init():
     for _name, cls in ToolsetMeta.iter_all():
         if cls.mcp_server is None:
             cls.mcp_server = global_mcp_server
-
+    modelQueryTools = []
     for _name, cls in ToolsetMeta.iter_all():
-        cls.mcp_server.register_mcptoolset_cls(cls)
+        tools=cls.mcp_server.register_mcptoolset_cls(cls)
+        if issubclass(cls, ModelQueryToolset):
+            modelQueryTools.extend(tool.name for tool in tools)
 
     # Generate the global instructions for each MCP Server including the query syntax and schemas
     mqs_models = defaultdict(list)
@@ -565,8 +577,11 @@ def init():
         if global_inst_tool:
             server.add_tool(fn=GetServerInstructionTools(server),
                             name="get_instructions_and_schemas",
-                            description="Get data schemas and instructions to query document collections. "
-                                        "Call this and analyse result prior to any data query.")
+                            description="Call this tool when you need information about the data available or "
+                                        "need to make a query with MongoDB aggregation pipelien syntax with one of the "
+                                        "following tools : " + ", ".join(modelQueryTools) + ". "
+                                        "It provides detailed Schemas of data and supported syntax for the "
+                                        "MongoDB aggregation pipeline. You only need to call this once.")
         server.append_instructions(
             f"""
 # Querying collections
@@ -624,7 +639,7 @@ class _DRFCreateAPIViewCallerTool:
 
     def __call__(self, body: dict):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "POST", id=id, body_json=body)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "POST", body_json=body)
 
         # Create the view
         try:
@@ -648,7 +663,7 @@ class _DRFListAPIViewCallerTool:
 
     def __call__(self):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "GET", id=id)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "GET")
 
         # Create the view
         try:

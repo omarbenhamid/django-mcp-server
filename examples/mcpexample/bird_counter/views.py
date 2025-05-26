@@ -14,7 +14,7 @@ class LocationSerializer(ModelSerializer):
     """
     class Meta:
         model = Location
-        fields = ('name','description','city')
+        fields = ('id', 'name','description','city')
 
 
 

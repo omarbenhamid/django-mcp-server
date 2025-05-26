@@ -8,10 +8,15 @@
 
 **Django MCP Server** is an implementation of the **Model Context Protocol (MCP)** extension for Django. This module allows **MCP Clients** and **AI agents** to interact with **any Django application** seamlessly.
 
-🚀 Django-Style declarative style-tool tool to Query Django Models and call custom logic by AI Agents and MCP clients
+🚀 Django-Style declarative style tools to allow AI Agents and MCP clients tool to interact with Django.
+
+🚀 Expose Django models for AI Agents and MCP Tools to query in 2 lines of code in a safe way.
+
 🚀 Convert Django Rest Framework APIs to MCP tools with one annotation.
+
 ✅ Working on all apps (WSGI and ASGI) without infrastructure change.  
-🤖 Any MCP Client, (Google Agent Developement Kit, Claude Desktop ...) can interact with your application.
+
+🤖 Any MCP Client or AI Agent supporting MCP , (Google Agent Developement Kit, Claude Desktop ...) can interact with your application.
 
 Licensed under the **MIT License**.
 
