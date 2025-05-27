@@ -5,9 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d88231da-2855-41e6-b975-0ce1ddba6c01" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/test/test_agent_25/.env.template" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/mcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/mcp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mcp_server/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mcp_server/agg_pipeline_ql.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/query_tool.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mcp_server/djangomcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/djangomcp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/test_agent/.env" beforeDir="false" afterPath="$PROJECT_DIR$/test/test_agent/.env.template" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,36 +32,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_match_text_op.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_stage.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_gen_schema.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_projection.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for tests.JSONQueryTest.test_query.test_query_with_lookup.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests in test_mcp_client.py.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.manage.executor&quot;: &quot;Run&quot;,
-    &quot;Python.mcp.executor&quot;: &quot;Run&quot;,
-    &quot;Python.mcpexample makemigrations.executor&quot;: &quot;Run&quot;,
-    &quot;Python.mcpexample migrate.executor&quot;: &quot;Run&quot;,
-    &quot;Python.mcpexample runserver.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_mcp_client.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_mcp_server 8002.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;Shell Script.Unnamed.executor&quot;: &quot;Run&quot;,
-    &quot;Shell Script.adk web 8001.executor&quot;: &quot;Run&quot;,
-    &quot;Shell Script.mcp inspector.executor&quot;: &quot;Run&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Git/gts/django-mcp-server/contrib/google-adk-python/contributing/samples&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.appearance&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_match_text_op.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_stage.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_gen_schema.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_projection.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup.executor": "Run",
+    "Python tests.Python tests for tests.JSONQueryTest.test_query.test_query_with_lookup.executor": "Run",
+    "Python tests.Python tests in test_mcp_client.py.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.manage.executor": "Run",
+    "Python.mcp.executor": "Run",
+    "Python.mcpexample makemigrations.executor": "Run",
+    "Python.mcpexample migrate.executor": "Run",
+    "Python.mcpexample runserver.executor": "Run",
+    "Python.test_mcp_client.executor": "Run",
+    "Python.test_mcp_server 8002.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "Shell Script.Unnamed.executor": "Run",
+    "Shell Script.adk web 8001.executor": "Run",
+    "Shell Script.mcp inspector.executor": "Run",
+    "last_opened_file_path": "C:/Git/gts/django-mcp-server/test/test_agent_25",
+    "settings.editor.selected.configurable": "configurable.group.appearance"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Git\gts\django-mcp-server\test\test_agent_25" />
       <recent name="C:\Git\gts\django-mcp-server\contrib\google-adk-python\contributing\samples" />
       <recent name="C:\Git\gts\django-mcp-server\test" />
       <recent name="C:\Git\gts\django-mcp-server\examples\mcpexample" />
@@ -66,7 +73,7 @@
       <recent name="C:\Git\gts\django-mcp-server" />
     </key>
   </component>
-  <component name="RunManager" selected="Shell Script.adk web 8001">
+  <component name="RunManager" selected="Shell Script.mcp inspector">
     <configuration name="Unnamed" type="CompoundRunConfigurationType">
       <method v="2" />
     </configuration>
@@ -333,7 +340,7 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/mcp_server/agg_pipeline_ql.py</url>
+          <url>file://$PROJECT_DIR$/mcp_server/query_tool.py</url>
           <line>12</line>
           <option name="timeStamp" value="30" />
         </line-breakpoint>
@@ -341,6 +348,11 @@
           <url>file://$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py</url>
           <line>32</line>
           <option name="timeStamp" value="31" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mcp_server/djangomcp.py</url>
+          <line>568</line>
+          <option name="timeStamp" value="32" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

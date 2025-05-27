@@ -1,7 +1,12 @@
+import logging
+
+from asgiref.sync import sync_to_async
 from django.db import models
-from django.db.models import Q, QuerySet, Count, Sum
+from django.db.models import Q, QuerySet, Count, Sum, Model
 from django.db.models import CharField, TextField
 from django.db.models import Avg, Max, Min
+
+logger = logging.getLogger(__name__)
 
 """
     Tools to generate MongoDB-style $jsonSchema from Django models
@@ -435,3 +440,189 @@ def _build_text_search_q(search_value, fields):
             word_q |= Q(**{f"{f}__icontains": word})
         q &= word_q
     return q
+
+
+class QueryToolModelMeta(type):
+    registry = {}
+
+    def __init__(cls, name, bases, namespace):
+        super().__init__(name, bases, namespace)
+        if name != "QueryToolModel":
+            QueryToolModelMeta.registry[name] = cls
+
+
+class QueryToolModel(metaclass=QueryToolModelMeta):
+    """
+    Base class for models that can be queried using the MCP QueryTool.
+    """
+
+    mcp_server: 'DjangoMCP' = None
+    "The server to use, if not set, the global one will be used."
+
+    model: type(Model) = None
+    " The model to query, this is used to generate the JSON schema and the query methods. "
+
+    exclude_fields: list[str] = []
+    """List of fields to exclude from the schema. Related fields to collections that are not published"
+    in any other ModelQueryTool of same server will be autoamtically excluded"""
+
+    fields: list[str] = None
+    "The list of fields to include"
+
+    search_fields: list[str] = None
+    "List of fields for full text search, if not set it defaults to textual fields allowed by 'fields' parameters."
+
+    extra_filters: list[str] = None
+    "A list of queryset api filters that will be accessible to the MCP client for querying."
+
+    extra_instructions: str = None
+    "Extra instruction to provide, for example on when to query this collection"
+
+    @classmethod
+    def get_text_search_fields(cls):
+        if hasattr(cls, "_effective_text_search_fields"):
+            return cls._effective_text_search_fields
+        if cls.search_fields is not None:
+            cls._effective_text_search_fields = set(cls.search_fields)
+        elif cls.fields is None:
+            cls._effective_text_search_fields = set(f.name for f in cls.model._meta.get_fields() if
+                                                    isinstance(f, (
+                                                    CharField, TextField)) and f.concrete and not f.is_relation)
+        else:
+            model_fields = cls.model._meta.get_fields()
+            cls._effective_text_search_fields = set(f for f in cls.fields if not model_fields[f].is_relation and
+                                                    isinstance(model_fields[f], (CharField, TextField)))
+        if not cls._effective_text_search_fields:
+            logger.debug(f"Full text search disabled for {cls.model}: no search fields resolved")
+        else:
+            logger.debug(
+                f"Full text search for {cls.model} enabled on fields: {','.join(cls._effective_text_search_fields)}")
+        return cls._effective_text_search_fields
+
+    @classmethod
+    def get_published_models(cls):
+        if hasattr(cls, "_effective_published_models"):
+            return cls._effective_published_models
+        cls._effective_published_models = set(c.model for c in QueryToolModelMeta.registry.values() if
+                                              c.mcp_server == cls.mcp_server)
+        return cls._effective_published_models
+
+    @classmethod
+    def get_excluded_fields(cls):
+        if hasattr(cls, "_effective_excluded_fields"):
+            return cls._effective_excluded_fields
+        cls._effective_excluded_fields = set(cls.exclude_fields or [])
+        published_models = cls.get_published_models()
+        unpublished_fks = [f.name for f in cls.model._meta.get_fields()
+                           if f.is_relation and f.related_model not in published_models]
+        if unpublished_fks:
+            logger.info(f"The following related fields of {cls.model} will not be published in {cls} "
+                        f"because their models are not published: {unpublished_fks}")
+            cls._effective_excluded_fields.update(
+                unpublished_fks
+            )
+        return cls._effective_excluded_fields
+
+    def get_queryset(self) -> QuerySet:
+        """
+        Returns the queryset to use for this toolset. This method can be overridden to filter the queryset
+        based on the request or other parameters, the request is available in self.request and the MCP Server
+        context in self.context
+        """
+        return self.model._default_manager.all()
+
+    def __init__(self, context=None, request=None):
+        self.context = context
+        self.request = request
+
+
+class _QueryExecutor:
+    def __init__(self, query_tool_models, context=None, request=None):
+        self.query_tool_models = query_tool_models
+        self.context = context
+        self.request = request
+    def query(self, collection : str, search_pipeline: list[dict] = []) -> list[dict]:
+        mql_model = self.query_tool_models.get(collection.lower())
+        if not mql_model:
+            raise ValueError(f"No such collection, available collections: {', '.join(self.query_tool_models.keys())}")
+        instance = mql_model(self.context, self.request)
+        qs = instance.get_queryset()
+
+        return list(apply_json_mango_query(qs, search_pipeline,
+                                           text_search_fields=instance.get_text_search_fields(),
+                                           allowed_models=instance.get_published_models(),
+                                           extended_operators=instance.extra_filters))
+class QueryTool:
+    def __init__(self):
+        self.query_tool_models = {}
+
+    def add_query_tool_model(self, cls):
+        self.query_tool_models[cls.model._meta.model_name.lower()] = cls
+
+    def get_instructions(self):
+        ret = f"""
+Use this tool to query data available in the server. 
+The `collection` parameter specifies the collection to query and the `search_pipeline` parameter is 
+a list of stage of a MongoDB aggregation pipeline with restricted syntax.
+
+## MongoDB aggregation pipeline syntax supported
+{PIPELINE_DSL_SPEC}. 
+
+## Available collections to query
+"""
+        for name, cls in self.query_tool_models.items():
+            ret+=f"""
+### '{name}' collection
+Documents conform the following JSON Schema
+```json
+{generate_json_schema(cls.model, fields=cls.fields,
+                      exclude=cls.get_excluded_fields())}
+```
+
+"""
+            if cls.get_text_search_fields():
+                ret += "Full text search is supported on the following fields: " + ", ".join(
+                    cls.get_text_search_fields()) + "."
+            else:
+                ret += "Full text search is not supported on this collection."
+
+            if cls.extra_instructions:
+                ret += f"\n\nExtra instructions for this collection:\n\n{cls.extra_instructions}\n"
+        return ret
+
+    def executor_factory(self, context, request):
+        return _QueryExecutor(self.query_tool_models, context, request)
+
+    def _add_tools_to(self, tool_manager):
+        from .djangomcp import _ToolsetMethodCaller
+        # ITerate all the methods whose name does not start with _ and register them with mcp_server.add_tool
+        ret = []
+        def _dumb_query(collection : str, search_pipeline: list[dict] = []):
+            ...
+
+        name = "query_data_collections"
+
+        tool = tool_manager.add_tool(
+            fn=sync_to_async(_dumb_query),
+            name=name,
+            description=self.get_instructions()
+        )
+
+        tool.context_kwarg = "_context"
+        tool.fn = _ToolsetMethodCaller(self.executor_factory, "query", "_context", False)
+        return [tool]
+
+
+def init(global_mcp_server : 'DjangoMCP'):
+    server_tools = {}
+    for name, cls in QueryToolModelMeta.registry.items():
+        cls.mcp_server = cls.mcp_server or global_mcp_server
+        querytool = server_tools.get(cls.mcp_server)
+        if not querytool:
+            querytool = QueryTool()
+            server_tools[cls.mcp_server] = querytool
+
+        querytool.add_query_tool_model(cls)
+
+    for server, tool in server_tools.items():
+        server.register_mcptoolset(tool)

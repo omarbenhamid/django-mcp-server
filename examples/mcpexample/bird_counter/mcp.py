@@ -2,31 +2,31 @@ from rest_framework.serializers import ModelSerializer
 
 from mcp_server import MCPToolset, drf_serialize_output, drf_publish_create_mcp_tool, drf_publish_update_mcp_tool, \
     drf_publish_destroy_mcp_tool, drf_publish_list_mcp_tool
-from mcp_server import ModelQueryToolset
+from mcp_server import QueryToolModel
 from .models import Bird, Location, City
 from .serializers import BirdSerializer
 from .views import LocationAPIView, LocationAPIUpdateView, LocationAPIListView
 
 
-class BirdQuery(ModelQueryToolset):
+class BirdQuery(QueryToolModel):
     model = Bird
 
     def get_queryset(self):
         """self.request can be used to filter the queryset"""
         return super().get_queryset().filter(location__isnull=False)
 
-class LocationTool(ModelQueryToolset):
+class LocationTool(QueryToolModel):
     model = Location
 
-class CityTool(ModelQueryToolset):
+class CityTool(QueryToolModel):
     model = City
 
 
-class LocationQuery(ModelQueryToolset):
+class LocationQuery(QueryToolModel):
     model = Location
 
 
-class CityQuery(ModelQueryToolset):
+class CityQuery(QueryToolModel):
     model = City
 
 

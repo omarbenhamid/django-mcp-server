@@ -21,7 +21,9 @@ from starlette.types import Scope, Receive, Send
 from starlette.datastructures import Headers
 from io import BytesIO
 
-from mcp_server.agg_pipeline_ql import apply_json_mango_query, generate_json_schema, \
+import warnings
+
+from mcp_server.query_tool import apply_json_mango_query, generate_json_schema, \
     PIPELINE_DSL_SPEC
 
 if TYPE_CHECKING:
@@ -224,8 +226,8 @@ class DjangoMCP(FastMCP):
             inst = inst.strip() + "\n\n" + new_instructions.strip()
         self._mcp_server.instructions = inst
 
-    def register_mcptoolset_cls(self, cls):
-        return cls()._add_tools_to(self._tool_manager)
+    def register_mcptoolset(self, toolset):
+        return toolset._add_tools_to(self._tool_manager)
 
     def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
                                  body_schema:dict=None):
@@ -331,14 +333,24 @@ class DjangoMCP(FastMCP):
 global_mcp_server = DjangoMCP(**getattr(settings, 'DJANGO_MCP_GLOBAL_SERVER_CONFIG', {}))
 
 
+mqs_dep_warned=False
+
+
 class ToolsetMeta(type):
     registry = {}
 
     def __init__(cls, name, bases, namespace):
+        global mqs_dep_warned
         super().__init__(name, bases, namespace)
         # Skip base class itself
         if name not in ("ModelQueryToolset", "MCPToolset"):
             ToolsetMeta.registry[name] = cls
+            if issubclass(cls, ModelQueryToolset):
+                mqs_dep_warned = True
+                # Python deprectation warning
+                warnings.warn(f"{cls.__name__} subclasses ModelQueryToolset which is DEPRCATED, "
+                              f"use QueryToolModel instead",
+                              DeprecationWarning)
 
     @staticmethod
     def iter_model_query_toolsets():
@@ -461,7 +473,6 @@ class ModelQueryToolset(metaclass=ToolsetMeta):
             logger.debug(f"Full text search for {cls.model} enabled on fields: {','.join(cls._effective_text_search_fields)}")
         return cls._effective_text_search_fields
 
-
     @classmethod
     def get_published_models(cls):
         if hasattr(cls, "_effective_published_models"):
@@ -547,6 +558,7 @@ class ModelQueryToolset(metaclass=ToolsetMeta):
 
 class GetServerInstructionTools:
     __name__="get_instructions_and_schemas"
+
     def __init__(self, server):
         self.server = server
 
@@ -559,9 +571,20 @@ def init():
     for _name, cls in ToolsetMeta.iter_all():
         if cls.mcp_server is None:
             cls.mcp_server = global_mcp_server
+
+    for _name, cls in ToolsetMeta.iter_mcp_toolsets():
+        cls.mcp_server.register_mcptoolset(cls())
+            
+    from . import query_tool
+    query_tool.init(global_mcp_server)
+
+    # Manage the now-deprecated ModelQueryToolset
+    if mqs_dep_warned:
+        logger.warning(f"ModelQueryToolset class is deprecated, use QueryToolModel instead")
+
     modelQueryTools = []
-    for _name, cls in ToolsetMeta.iter_all():
-        tools=cls.mcp_server.register_mcptoolset_cls(cls)
+    for _name, cls in ToolsetMeta.iter_model_query_toolsets():
+        tools=cls.mcp_server.register_mcptoolset(cls())
         if issubclass(cls, ModelQueryToolset):
             modelQueryTools.extend(tool.name for tool in tools)
 

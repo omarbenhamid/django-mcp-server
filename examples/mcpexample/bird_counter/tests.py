@@ -2,7 +2,7 @@ from django.db.models import Q
 from django.test import TestCase
 
 from .models import Bird, Location, City
-from mcp_server import agg_pipeline_ql
+from mcp_server import query_tool
 
 
 class JSONQueryTest(TestCase):
