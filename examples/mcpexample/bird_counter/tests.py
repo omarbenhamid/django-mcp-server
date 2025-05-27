@@ -30,7 +30,7 @@ class JSONQueryTest(TestCase):
         ])
 
     def test_gen_schema(self):
-        self.assertEqual(agg_pipeline_ql.generate_json_schema(Bird),
+        self.assertEqual(query_tool.generate_json_schema(Bird),
                          {
                              'description': 'Inventory of observation of a certain species of birds',
                              '$jsonSchema': {
@@ -53,7 +53,7 @@ class JSONQueryTest(TestCase):
                          )
 
     def _assert_bird_jsonquery_match(self, expectedqs, pipeline, count=None, **kwargs):
-        birds = agg_pipeline_ql.apply_json_mango_query(Bird.objects.all().order_by("id"), pipeline, **kwargs)
+        birds = query_tool.apply_json_mango_query(Bird.objects.all().order_by("id"), pipeline, **kwargs)
         birds = list(birds)
         self.assertListEqual(list(expectedqs.values().order_by("id")), birds)
         if count is not None:
@@ -61,7 +61,7 @@ class JSONQueryTest(TestCase):
 
     def test_query(self):
         # Test the query method
-        birds = agg_pipeline_ql.apply_json_mango_query(Bird.objects.all(), [])
+        birds = query_tool.apply_json_mango_query(Bird.objects.all(), [])
         birds = list(birds)
         self.assertEqual(Bird.objects.all().count(), len(birds))
 
@@ -151,7 +151,7 @@ class JSONQueryTest(TestCase):
             ], 6)
 
     def test_projection(self):
-        res = agg_pipeline_ql.apply_json_mango_query(
+        res = query_tool.apply_json_mango_query(
             Bird.objects.all(),[
                 {
                     "$lookup": {
@@ -245,7 +245,7 @@ class JSONQueryTest(TestCase):
                 }
             }
         ]
-        result = agg_pipeline_ql.apply_json_mango_query(Bird.objects.all(), pipeline)
+        result = query_tool.apply_json_mango_query(Bird.objects.all(), pipeline)
         result = list(result)
         self.assertEqual(len(result), 2)  # Expect 2 distinct countries
         for row in result:
@@ -287,7 +287,7 @@ class JSONQueryTest(TestCase):
                 }
             }
         ]
-        result = agg_pipeline_ql.apply_json_mango_query(Bird.objects.all(), pipeline)
+        result = query_tool.apply_json_mango_query(Bird.objects.all(), pipeline)
         result = list(result)
         self.assertEqual(len(result), 1)  # Expect 2 distinct countries
         row = result[0]
@@ -297,3 +297,59 @@ class JSONQueryTest(TestCase):
         self.assertEqual(1, row["min_count"])
         self.assertEqual(9, row["count"] )
         self.assertEqual(5.111111111111111, row["average"])
+        
+        
+    def test_group_multi_aggregations(self):
+        # Add a location in france ot have more interesting stats
+        loc=Location.objects.create(
+            name="Place Broglie",
+            city= City.objects.create(name='Strasbourg', country='FRA')
+        )
+
+        Bird.objects.bulk_create([
+            Bird(location=loc, species='Sparrow', count=3),
+            Bird(location=loc, species='Sparrow', count=5),
+        ])
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "location",
+                    "localField": "location",
+                    "foreignField": "_id",
+                    "as": "loc"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "city",
+                    "localField": "loc.city",
+                    "foreignField": "_id",
+                    "as": "city"
+                }
+            },{
+                "$group": {
+                    "_id": {
+                        "country": "$city.country",
+                        "species": "$species"
+                    },
+                    "total": {"$sum": "$count"},
+                    "average": {"$avg": "$count"},
+                    "max_count": {"$max": "$count"},
+                    "min_count": {"$min": "$count"},
+                    "count": {"$count": 1}
+                }
+            }
+        ]
+        result = query_tool.apply_json_mango_query(Bird.objects.all(), pipeline)
+        result = list(result)
+        print(result)
+        self.assertEqual(len(result), len(set(Bird.objects.values_list("location__city__country","species"))))  # Expect 2 distinct countries/species combinations
+
+        row = next(res for res in result if res["_id"]["country"] == "FRA" and res["_id"]["species"]=="Sparrow")
+
+        self.assertEqual(set(row.keys()), {"_id", "total", "average", "count", "max_count", "min_count"})
+        self.assertEqual(8, row["total"])
+        self.assertEqual(5, row["max_count"])
+        self.assertEqual(3, row["min_count"])
+        self.assertEqual(2, row["count"] )
+        self.assertEqual(4, row["average"])

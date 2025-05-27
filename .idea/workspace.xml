@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="d88231da-2855-41e6-b975-0ce1ddba6c01" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mcp_server/query_tool.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/query_tool.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -32,6 +33,7 @@
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_stage.executor": "Run",
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_gen_schema.executor": "Run",
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations.executor": "Run",
+    "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations.executor": "Debug",
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_projection.executor": "Run",
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query.executor": "Run",
     "Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup.executor": "Run",
@@ -66,7 +68,7 @@
       <recent name="C:\Git\gts\django-mcp-server" />
     </key>
   </component>
-  <component name="RunManager" selected="Shell Script.mcp inspector">
+  <component name="RunManager" selected="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations">
     <configuration name="Unnamed" type="CompoundRunConfigurationType">
       <method v="2" />
     </configuration>
@@ -267,7 +269,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="django-mcp-server" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -278,7 +280,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;bird_counter.tests.JSONQueryTest.test_query_with_lookup&quot;" />
+      <option name="_new_target" value="&quot;bird_counter.tests.JSONQueryTest.test_group_multi_aggregations&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -288,21 +290,21 @@
       <item itemvalue="Python.mcpexample migrate" />
       <item itemvalue="Python.mcpexample runserver" />
       <item itemvalue="Python.test_mcp_client" />
+      <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_match_text_op" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_stage" />
-      <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup" />
       <item itemvalue="Shell Script.adk web 8001" />
       <item itemvalue="Shell Script.mcp inspector" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations" />
         <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations" />
         <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest" />
         <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_stage" />
         <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_fulltext_search_match_text_op" />
-        <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_query_with_lookup" />
       </list>
     </recent_temporary>
   </component>
@@ -341,6 +343,16 @@
           <url>file://$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py</url>
           <line>32</line>
           <option name="timeStamp" value="31" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py</url>
+          <line>349</line>
+          <option name="timeStamp" value="34" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py</url>
+          <line>347</line>
+          <option name="timeStamp" value="35" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

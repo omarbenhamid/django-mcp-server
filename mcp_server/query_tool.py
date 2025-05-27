@@ -133,7 +133,7 @@ The syntax to query is a subset of MangoDB aggregation pipeline JSON with suppor
 7. $group: Groups the result set by a field and applies aggregations.
      - It must be the **final** stage in the pipeline.
      - You cannot have a $project stage in the pipeline.
-     - `_id` can be null for global aggregation or a $<field> reference of a single field or lookup field.
+     - `_id` can be null for global aggregation or a $<field> reference of a single field or lookup field or an object mapping "keys" to "$<field>" refs.
      - Supported accumulator operators: `$sum`, `$avg`, `$min`, `$max` and `$count`
 
 All other stages NOT SUPPORTED : $addFields, $set, $unset, $unwind ...
@@ -286,8 +286,18 @@ def apply_json_mango_query(queryset: QuerySet, pipeline: list[dict],
                 mapping[group_id[1:]] = group_field
 
                 return _postprocess_projection(queryset.values(group_field).annotate(**annotations), mapping)
+            elif isinstance(group_id, dict):
+                mapping = dict((k,k) for k in group.keys() if k != "_id")
+                group_fields = set()
+                for key, formula in group_id.items():
+                    if not isinstance(formula, str) or not formula.startswith("$"):
+                        raise ValueError(f"_id in $group only supports null, string or one level object: value of {key} must be a string reference to field like $<field>.")
+                    group_field = _translate_field(formula[1:], lookup_alias_map)
+                    mapping["_id."+key] = group_field
+                    group_fields.add(group_field)
+                return _postprocess_projection(queryset.values(*group_fields).annotate(**annotations), mapping)
             else:
-                raise ValueError("Unsupported _id value in $group. Only null or single field allowed.")
+                raise ValueError("Unsupported _id value in $group. Only allowed : null a \"$field\" or a {\"key\":\"$field\",...} object.")
 
         elif "$lookup" in stage:
             continue
