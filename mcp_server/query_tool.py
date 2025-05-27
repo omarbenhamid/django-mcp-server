@@ -442,16 +442,16 @@ def _build_text_search_q(search_value, fields):
     return q
 
 
-class QueryToolModelMeta(type):
+class ModelQueryToolsetMeta(type):
     registry = {}
 
     def __init__(cls, name, bases, namespace):
         super().__init__(name, bases, namespace)
-        if name != "QueryToolModel":
-            QueryToolModelMeta.registry[name] = cls
+        if name != "ModelQueryToolset":
+            ModelQueryToolsetMeta.registry[name] = cls
 
 
-class QueryToolModel(metaclass=QueryToolModelMeta):
+class ModelQueryToolset(metaclass=ModelQueryToolsetMeta):
     """
     Base class for models that can be queried using the MCP QueryTool.
     """
@@ -464,7 +464,7 @@ class QueryToolModel(metaclass=QueryToolModelMeta):
 
     exclude_fields: list[str] = []
     """List of fields to exclude from the schema. Related fields to collections that are not published"
-    in any other ModelQueryTool of same server will be autoamtically excluded"""
+    in any other ModelQueryToolset of same server will be autoamtically excluded"""
 
     fields: list[str] = None
     "The list of fields to include"
@@ -503,7 +503,7 @@ class QueryToolModel(metaclass=QueryToolModelMeta):
     def get_published_models(cls):
         if hasattr(cls, "_effective_published_models"):
             return cls._effective_published_models
-        cls._effective_published_models = set(c.model for c in QueryToolModelMeta.registry.values() if
+        cls._effective_published_models = set(c.model for c in ModelQueryToolsetMeta.registry.values() if
                                               c.mcp_server == cls.mcp_server)
         return cls._effective_published_models
 
@@ -615,7 +615,7 @@ Documents conform the following JSON Schema
 
 def init(global_mcp_server : 'DjangoMCP'):
     server_tools = {}
-    for name, cls in QueryToolModelMeta.registry.items():
+    for name, cls in ModelQueryToolsetMeta.registry.items():
         cls.mcp_server = cls.mcp_server or global_mcp_server
         querytool = server_tools.get(cls.mcp_server)
         if not querytool:

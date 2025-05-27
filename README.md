@@ -74,24 +74,24 @@ By default, the MCP endpoint will be available at `/mcp`.
 
 ### 3️⃣ Define MCP Tools
 
-In mcp.py create a subclass of `ModelQueryTool` to give access to a model :
+In mcp.py create a subclass of `ModelQueryToolset` to give access to a model :
 
 ```python
-from mcp_server import QueryToolModel
+from mcp_server import ModelQueryToolset
 from .models import *
 
 
-class BirdQueryTool(QueryToolModel):
+class BirdQueryTool(ModelQueryToolset):
     model = Bird
 
     def get_queryset(self):
         """self.request can be used to filter the queryset"""
         return super().get_queryset().filter(location__isnull=False)
 
-class LocationTool(QueryToolModel):
+class LocationTool(ModelQueryToolset):
     model = Location
 
-class CityTool(QueryToolModel):
+class CityTool(ModelQueryToolset):
     model = City
 
 ```

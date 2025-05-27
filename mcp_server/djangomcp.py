@@ -343,32 +343,8 @@ class ToolsetMeta(type):
         global mqs_dep_warned
         super().__init__(name, bases, namespace)
         # Skip base class itself
-        if name not in ("ModelQueryToolset", "MCPToolset"):
+        if name == "MCPToolset":
             ToolsetMeta.registry[name] = cls
-            if issubclass(cls, ModelQueryToolset):
-                mqs_dep_warned = True
-                # Python deprectation warning
-                warnings.warn(f"{cls.__name__} subclasses ModelQueryToolset which is DEPRCATED, "
-                              f"use QueryToolModel instead",
-                              DeprecationWarning)
-
-    @staticmethod
-    def iter_model_query_toolsets():
-        """
-        Iterate over all ModelQueryToolset subclasses
-        """
-        for name, cls in ToolsetMeta.registry.items():
-            if issubclass(cls, ModelQueryToolset):
-                yield name, cls
-
-    @staticmethod
-    def iter_mcp_toolsets():
-        """
-        Iterate over all MCPToolset subclasses
-        """
-        for name, cls in ToolsetMeta.registry.items():
-            if issubclass(cls, MCPToolset):
-                yield name, cls
 
     @staticmethod
     def iter_all():
@@ -428,202 +404,17 @@ class MCPToolset(metaclass=ToolsetMeta):
         return ret
 
 
-class ModelQueryToolset(metaclass=ToolsetMeta):
-    mcp_server: DjangoMCP = None
-    "The server to use, if not set, the global one will be used."
-
-    model: type(Model) = None
-    " The model to query, this is used to generate the JSON schema and the query methods. "
-
-    name: str = None
-    "The name of the tool, if not set, the class name will be used "
-
-    exclude_fields: list[str] = []
-    """List of fields to exclude from the schema. Related fields to collections that are not published"
-    in any other ModelQueryTool of same server will be autoamtically excluded"""
-
-    fields: list[str] = None
-    "The list of fields to include"
-
-    search_fields: list[str] = None
-    "List of fields for full text search, if not set it defaults to textual fields allowed by 'fields' parameters."
-
-    extra_filters: list[str] = None
-    "A list of queryset api filters that will be accessible to the MCP client for querying."
-
-    extra_instructions: str = None
-    "Extra instruction to provide to the MCP client (usually the agent)"
-
-    @classmethod
-    def get_text_search_fields(cls):
-        if hasattr(cls, "_effective_text_search_fields"):
-            return cls._effective_text_search_fields
-        if cls.search_fields is not None:
-            cls._effective_text_search_fields = set(cls.search_fields)
-        elif cls.fields is None:
-            cls._effective_text_search_fields = set(f.name for f in cls.model._meta.get_fields() if
-                              isinstance(f, (CharField, TextField)) and f.concrete and not f.is_relation)
-        else:
-            model_fields = cls.model._meta.get_fields()
-            cls._effective_text_search_fields = set(f for f in cls.fields if not model_fields[f].is_relation and
-                                      isinstance(model_fields[f], (CharField, TextField)))
-        if not cls._effective_text_search_fields:
-            logger.debug(f"Full text search disabled for {cls.model}: no search fields resolved")
-        else:
-            logger.debug(f"Full text search for {cls.model} enabled on fields: {','.join(cls._effective_text_search_fields)}")
-        return cls._effective_text_search_fields
-
-    @classmethod
-    def get_published_models(cls):
-        if hasattr(cls, "_effective_published_models"):
-            return cls._effective_published_models
-        cls._effective_published_models = set(c.model for _n, c in ToolsetMeta.iter_model_query_toolsets() if
-                               c.mcp_server == cls.mcp_server)
-        return cls._effective_published_models
-
-    @classmethod
-    def get_excluded_fields(cls):
-        if hasattr(cls, "_effective_excluded_fields"):
-            return cls._effective_excluded_fields
-        cls._effective_excluded_fields = set(cls.exclude_fields or [])
-        published_models = cls.get_published_models()
-        unpublished_fks = [f.name for f in cls.model._meta.get_fields()
-                           if f.is_relation and f.related_model not in published_models]
-        if unpublished_fks:
-            logger.info(f"The following related fields of {cls.model} will not be published in {cls} "
-                        f"because their models are not published: {unpublished_fks}")
-            cls._effective_excluded_fields.update(
-                unpublished_fks
-            )
-        return cls._effective_excluded_fields
-
-    def get_instructions(self):
-        """ Generates the instructions, you can add extra instructions with the
-        extra_instructions attribute. Doc string of the class is included if set"""
-        ret = (f"A tool to query ['{self.model._meta.model_name}'](#{self.model._meta.model_name.lower()}-json-schema) "
-               f"collection. The search_pipeline parameter uses "
-               f"[the supported subset of MongoDB aggregation pipeline syntax]"
-               f"(#mongodb-aggregation-pipeline-syntax-supported).")
-        if getattr(settings, 'DJANGO_MCP_GET_SERVER_INSTRUCTIONS_TOOL', True):
-            ret += ("You MUST call `get_instructions_and_schemas` tool at least once before you use this tool. And MUST respect"
-                    "PRECISELY the pipline syntax constraints and Schemas it returns.")
-        if self.get_text_search_fields():
-            ret += "Full text search is supported on the following fields: " + ", ".join(self.get_text_search_fields()) + "."
-        else:
-            ret += "Full text search is not supported on this collection."
-        if self.get_excluded_fields():
-            ret += ("Matching and projection are FORBIDDEN on the following fields: "
-                    + ", ".join(self.get_excluded_fields()) + ".")
-        if self.extra_instructions:
-            ret += f"\n\n# Extra instructions\n{self.extra_instructions}\n"
-        return ret
-
-    def get_queryset(self) -> QuerySet:
-        """
-        Returns the queryset to use for this toolset. This method can be overridden to filter the queryset
-        based on the request or other parameters.
-        """
-        return self.model._default_manager.all()
-
-    def query(self, search_pipeline: list[dict] = []) -> list[dict]:
-        qs = self.get_queryset()
-
-        return list(apply_json_mango_query(qs, search_pipeline,
-                                           text_search_fields=self.get_text_search_fields(),
-                                           allowed_models=self.get_published_models(),
-                                           extended_operators=self.extra_filters))
-
-    def __init__(self, context=None, request=None):
-        self.context = context
-        self.request = request
-        if self.mcp_server is None:
-            self.mcp_server = global_mcp_server
-
-    def _add_tools_to(self, tool_manager):
-        # ITerate all the methods whose name does not start with _ and register them with mcp_server.add_tool
-        ret = []
-        method = self.query
-        name = self.name or f"{self.__class__.__name__}_{self.model._meta.model_name}Query"
-
-        tool = tool_manager.add_tool(
-            fn=sync_to_async(method),
-            name=name,
-            description=self.get_instructions()
-        )
-
-        tool.context_kwarg = "_context"
-        tool.fn = _ToolsetMethodCaller(self.__class__, "query", "_context", False)
-        return [tool]
-
-
-class GetServerInstructionTools:
-    __name__="get_instructions_and_schemas"
-
-    def __init__(self, server):
-        self.server = server
-
-    def __call__(self):
-        return self.server.instructions
-
-
 def init():
     # Register the tools
     for _name, cls in ToolsetMeta.iter_all():
         if cls.mcp_server is None:
             cls.mcp_server = global_mcp_server
 
-    for _name, cls in ToolsetMeta.iter_mcp_toolsets():
+    for _name, cls in ToolsetMeta.iter_all():
         cls.mcp_server.register_mcptoolset(cls())
             
     from . import query_tool
     query_tool.init(global_mcp_server)
-
-    # Manage the now-deprecated ModelQueryToolset
-    if mqs_dep_warned:
-        logger.warning(f"ModelQueryToolset class is deprecated, use QueryToolModel instead")
-
-    modelQueryTools = []
-    for _name, cls in ToolsetMeta.iter_model_query_toolsets():
-        tools=cls.mcp_server.register_mcptoolset(cls())
-        if issubclass(cls, ModelQueryToolset):
-            modelQueryTools.extend(tool.name for tool in tools)
-
-    # Generate the global instructions for each MCP Server including the query syntax and schemas
-    mqs_models = defaultdict(list)
-    for _name, cls in ToolsetMeta.iter_model_query_toolsets():
-        mqs_models[cls.mcp_server].append(cls)
-
-    # Global publish insturctions tool
-    global_inst_tool = getattr(settings, 'DJANGO_MCP_GET_SERVER_INSTRUCTIONS_TOOL', True)
-    # Generate global
-    for server, mqs_list in mqs_models.items():
-        if global_inst_tool:
-            server.add_tool(fn=GetServerInstructionTools(server),
-                            name="get_instructions_and_schemas",
-                            description="Call this tool when you need information about the data available or "
-                                        "need to make a query with MongoDB aggregation pipelien syntax with one of the "
-                                        "following tools : " + ", ".join(modelQueryTools) + ". "
-                                        "It provides detailed Schemas of data and supported syntax for the "
-                                        "MongoDB aggregation pipeline. You only need to call this once.")
-        server.append_instructions(
-            f"""
-# Querying collections
-The `search_pipeline` parameter of some tools accepts a MongoDB aggregation pipeline to query collections.
-
-## MongoDB aggregation pipeline syntax supported
-{PIPELINE_DSL_SPEC}. 
-
-## Available collections to query
-""")
-        for cls in mqs_list:
-            server.append_instructions(f"""
-### '{cls.model._meta.model_name}' collection
-Documents conform the following JSON Schema
-```json
-{generate_json_schema(cls.model, fields=cls.fields,
-                      exclude=cls.get_excluded_fields())}
-```
-""")
 
 
 class _DRFRequestWrapper(HttpRequest):
@@ -654,8 +445,10 @@ class _DRFCreateAPIViewCallerTool:
             raise ValueError(f"{view_class} must be a subclass of DRF CreateModelMixin")
         self.mcp_server = mcp_server
         self.view_class = view_class
+
         def raise_exception(exp):
             raise exp
+        
         # Disable built in tauth
         self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
                                        handle_exception=raise_exception)

@@ -5,15 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d88231da-2855-41e6-b975-0ce1ddba6c01" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/test/test_agent_25/.env.template" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/mcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/mcp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mcp_server/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mcp_server/agg_pipeline_ql.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/query_tool.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mcp_server/djangomcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/djangomcp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test/test_agent/.env" beforeDir="false" afterPath="$PROJECT_DIR$/test/test_agent/.env.template" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mcp_server/query_tool.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/query_tool.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -348,11 +345,6 @@
           <url>file://$PROJECT_DIR$/examples/mcpexample/bird_counter/tests.py</url>
           <line>32</line>
           <option name="timeStamp" value="31" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/mcp_server/djangomcp.py</url>
-          <line>568</line>
-          <option name="timeStamp" value="32" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
