@@ -135,6 +135,8 @@ The syntax to query is a subset of MangoDB aggregation pipeline JSON with suppor
      - You cannot have a $project stage in the pipeline.
      - `_id` can be null for global aggregation or a $<field> reference of a single field or lookup field.
      - Supported accumulator operators: `$sum`, `$avg`, `$min`, `$max` and `$count`
+
+All other stages NOT SUPPORTED : $addFields, $set, $unset, $unwind ...
 """
 
 def apply_json_mango_query(queryset: QuerySet, pipeline: list[dict],
