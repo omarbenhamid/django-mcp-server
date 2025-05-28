@@ -415,8 +415,19 @@ def _parse_match(match, extended_operators, lookup_map, text_search_fields=None)
             for op, value in condition.items():
                 if op.startswith("$"):
                     op_name = op[1:]
-                    if op_name in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin"]:
-                        django_op = "" if op_name == "eq" else f"__{op_name}"
+                    negate=False
+                    if op_name == "ne":
+                        negate = True
+                        op_name = "eq"
+                    elif op_name == "nin":
+                        negate = True
+                        op_name = "in"
+
+                    if op_name == "eq" and value is None:
+                        key = f"{field}__isnull"
+                        value = True
+                    elif op_name in ["eq", "gt", "gte", "lt", "lte", "in"]:
+                        django_op = "" if op_name=="eq" else f"__{op_name}"
                         key = f"{field}{django_op}"
                     elif op_name == "regex":
                         key = f"{field}__regex"
@@ -424,7 +435,7 @@ def _parse_match(match, extended_operators, lookup_map, text_search_fields=None)
                         key = f"{field}__{op_name}"
                     else:
                         raise ValueError(f"Unsupported operator {op} : please reveiwe pipeline syntax constraints ")
-                    q &= Q(**{key: value})
+                    q &= ~Q(**{key: value}) if negate else Q(**{key: value})
                 else:
                     raise ValueError(f"Unknown match key: {op} : please reveiwe pipeline syntax constraints")
         else:
