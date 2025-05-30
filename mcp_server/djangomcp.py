@@ -343,9 +343,7 @@ class ToolsetMeta(type):
         global mqs_dep_warned
         super().__init__(name, bases, namespace)
         # Skip base class itself
-        if name != "MCPToolset" and (
-            bases and MCPToolset in bases or any(issubclass(base, MCPToolset) for base in bases if isinstance(base, type))
-        ):
+        if name != "MCPToolset" and issubclass(cls, MCPToolset):
             ToolsetMeta.registry[name] = cls
 
     @staticmethod
