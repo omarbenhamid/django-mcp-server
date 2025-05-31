@@ -16,7 +16,8 @@ async def main():
             # Call a tool
             tool_result = await session.call_tool("list_species", {"search_string": "e"})
             print(tool_result)
-
+            tool_result = await session.call_tool("list_species", {"search_string": "e"})
+            print(tool_result)
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
