@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="d88231da-2855-41e6-b975-0ce1ddba6c01" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mcp_server/djangomcp.py" beforeDir="false" afterPath="$PROJECT_DIR$/mcp_server/djangomcp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test/test_mcp_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/test_mcp_client.py" afterDir="false" />
     </list>
@@ -42,9 +43,10 @@
     "Python.main.executor": "Run",
     "Python.manage.executor": "Run",
     "Python.mcp.executor": "Run",
+    "Python.mcpexample asgi (uvicorn).executor": "Debug",
     "Python.mcpexample makemigrations.executor": "Run",
     "Python.mcpexample migrate.executor": "Run",
-    "Python.mcpexample runserver.executor": "Run",
+    "Python.mcpexample runserver.executor": "Debug",
     "Python.test_mcp_client.executor": "Run",
     "Python.test_mcp_server 8002.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -68,8 +70,31 @@
       <recent name="C:\Git\gts\django-mcp-server" />
     </key>
   </component>
-  <component name="RunManager" selected="Shell Script.mcp inspector">
+  <component name="RunManager" selected="Python.mcpexample runserver">
     <configuration name="Unnamed" type="CompoundRunConfigurationType">
+      <method v="2" />
+    </configuration>
+    <configuration name="mcpexample asgi (uvicorn)" type="PythonConfigurationType" factoryName="Python">
+      <module name="django-mcp-server" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="asksai" />
+      <option name="WORKING_DIRECTORY" value="C:\Git\gts\django-mcp-server\examples\mcpexample" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="uvicorn" />
+      <option name="PARAMETERS" value="mcpexample.asgi:application" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
     <configuration name="mcpexample makemigrations" type="PythonConfigurationType" factoryName="Python">
@@ -289,6 +314,7 @@
       <item itemvalue="Python.mcpexample makemigrations" />
       <item itemvalue="Python.mcpexample migrate" />
       <item itemvalue="Python.mcpexample runserver" />
+      <item itemvalue="Python.mcpexample asgi (uvicorn)" />
       <item itemvalue="Python.test_mcp_client" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_multi_aggregations" />
       <item itemvalue="Python tests.Python tests for bird_counter.tests.JSONQueryTest.test_group_aggregations" />
@@ -344,7 +370,38 @@
           <line>32</line>
           <option name="timeStamp" value="31" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/test/test_mcp_client.py</url>
+          <line>6</line>
+          <option name="timeStamp" value="32" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mcp_server/views.py</url>
+          <line>17</line>
+          <option name="timeStamp" value="33" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mcp_server/views.py</url>
+          <line>23</line>
+          <option name="timeStamp" value="35" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <dependency master-id="0" />
+          <url>file://$PROJECT_DIR$/../../../Progs/anaconda3/envs/asksai/Lib/site-packages/asgiref/sync.py</url>
+          <line>412</line>
+          <option name="timeStamp" value="38" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/mcp_server/views.py</url>
+          <line>20</line>
+          <option name="timeStamp" value="41" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="self.func" language="Python" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

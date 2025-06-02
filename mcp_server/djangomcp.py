@@ -8,7 +8,7 @@ from importlib import import_module
 from typing import Any, TYPE_CHECKING
 
 import anyio
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 from django.conf import settings
 from django.db.models import QuerySet, Model, TextField, CharField
 from mcp.server import FastMCP
@@ -201,7 +201,7 @@ class DjangoMCP(FastMCP):
             else:
                 return HttpResponse(status=400, content="Session required for stateful server")
 
-        result = anyio.run(_call_starlette_handler, request, self.session_manager)
+        result = async_to_sync(_call_starlette_handler)(request, self.session_manager)
         request.session.save()
         result.headers[MCP_SESSION_ID_HDR]=request.session.session_key
         delattr(request, 'session')
