@@ -5,6 +5,7 @@ import json
 import logging
 from collections import defaultdict
 from importlib import import_module
+from types import SimpleNamespace
 from typing import Any, TYPE_CHECKING
 
 import anyio
@@ -149,7 +150,7 @@ class _ToolsetMethodCaller:
     def __call__(self, *args, **kwargs):
         # Get the class instance
         instance = self.class_(context=kwargs[self.context_kwarg],
-                               request=django_request_ctx.get())
+                               request=django_request_ctx.get(SimpleNamespace()))
         # Get the method
         method = sync_to_async(_SyncToolCallWrapper(getattr(instance, self.method_name)))
         if not self.forward_context_kwarg:
@@ -258,9 +259,14 @@ class DjangoMCP(FastMCP):
                 # Extract schema for a specific serializer manually
                 tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
             except AttributeError:
-                logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
+                logger.warning(
+                    "DRF version installed does not support schema generation, officially, trying privte API")
+                try:
+                    tool.parameters['properties']['body'] = view_class.schema._map_serializer(
+                        view_class.serializer_class())
+                except Exception:
+                    logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
                                 "to the tool registration")
-                raise
             except Exception:
                 logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
                 raise
@@ -308,9 +314,14 @@ class DjangoMCP(FastMCP):
                 # Extract schema for a specific serializer manually
                 tool.parameters['properties']['body'] = view_class.schema.map_serializer(view_class.serializer_class())
             except AttributeError:
-                logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
-                                "to the tool registration")
-                raise
+                logger.warning(
+                    "DRF version installed does not support schema generation, officially, trying privte API")
+                try:
+                    tool.parameters['properties']['body'] = view_class.schema._map_serializer(
+                        view_class.serializer_class())
+                except Exception:
+                    logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
+                                    "to the tool registration")
             except Exception:
                 logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
                 raise
@@ -455,7 +466,7 @@ class _DRFCreateAPIViewCallerTool:
 
     def __call__(self, body: dict):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "POST", body_json=body)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "POST", body_json=body)
 
         # Create the view
         try:
@@ -479,7 +490,7 @@ class _DRFListAPIViewCallerTool:
 
     def __call__(self):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "GET")
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "GET")
 
         # Create the view
         try:
@@ -505,7 +516,7 @@ class _DRFUpdateAPIViewCallerTool:
 
     def __call__(self, id, body: dict):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "PUT", id=id, body_json=body)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "PUT", id=id, body_json=body)
 
         # Create the view
         try:
@@ -531,7 +542,7 @@ class _DRFDeleteAPIViewCallerTool:
 
     def __call__(self, id):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(), "DELETE", id=id)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "DELETE", id=id)
 
         # Create the view
         try:
