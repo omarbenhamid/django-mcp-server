@@ -11,7 +11,7 @@ from .views import LocationAPIView, LocationAPIUpdateView, LocationAPIListView
 class BirdQuery(ModelQueryToolset):
     model = Bird
 
-    output_format = "xlsx"
+    output_format = "csv"
     # output_as_resource = True # as of today milage with this may vary, claude supports it if it is not tool long, ADK fails to process the response ...
 
     def get_queryset(self):
