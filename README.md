@@ -338,6 +338,35 @@ setup, and use `'oauth2_provider.contrib.rest_framework.OAuth2Authentication'` i
 
 You can in your urls.py mount the MCPServerStreamableHttpView.as_view() view and customize it with any extra parameters.
 
+### Custom output format (renderers) for ModelQueryToolset
+
+You can define any [DRF rendrer](https://www.django-rest-framework.org/api-guide/renderers/) to produce output, for this 
+it must be declared in your settings:
+
+```python
+DJANGO_MCP_OUTPUT_RENDERER_CLASSES = [
+    "rest_framework.renderers.JSONRenderer",
+    "rest_framework_csv.renderers.CSVRenderer"
+]
+```
+
+Then in your `ModelQueryToolset` declaration you can add 
+
+```python
+    ...
+    output_format="csv"
+```
+
+further you can instruct the tool to attach the result as an [MCP Embedded Resource] rather than direct return with
+
+```python
+    ...
+    output_as_resource=True
+```
+
+*NOTE* some renderers like `drf-excel` are designed in a way that does not allow using them outside of DRF View, they will not 
+work here..
+
 ### Secondary MCP endpoint
 in `mcp.py`
 ```python

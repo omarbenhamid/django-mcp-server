@@ -132,4 +132,9 @@ DJANGO_MCP_GLOBAL_SERVER_CONFIG = {
 
 DJANGO_MCP_AUTHENTICATION_CLASSES = ["rest_framework.authentication.TokenAuthentication"]
 
+DJANGO_MCP_OUTPUT_RENDERER_CLASSES = [
+    "rest_framework.renderers.JSONRenderer",
+    "rest_framework_csv.renderers.CSVRenderer"
+]
+
 DJANGO_MCP_GET_SERVER_INSTRUCTIONS_TOOL = True

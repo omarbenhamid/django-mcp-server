@@ -6,12 +6,14 @@ import logging
 from random import randint
 
 from asgiref.sync import sync_to_async
-from django.core.serializers.json import DjangoJSONEncoder
+from django.conf import settings
 from django.db import models
 from django.db.models import Q, QuerySet, Count, Sum, Model
 from django.db.models import CharField, TextField
 from django.db.models import Avg, Max, Min
-from mcp.types import EmbeddedResource, TextResourceContents, BlobResourceContents
+from django.utils.module_loading import import_string
+from mcp.types import EmbeddedResource, TextResourceContents, BlobResourceContents, TextContent
+from rest_framework.renderers import BaseRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +252,7 @@ def apply_json_mango_query(queryset: QuerySet, pipeline: list[dict],
                 if key == "_id":
                     continue
                 if not isinstance(agg, dict) or len(agg) != 1:
-                    raise ValueError(f'Aggregation for key {key} can only be a JSON object of format \{"$<operator>": "<parameter>"\}.')
+                    raise ValueError(f'Aggregation for key {key} can only be a JSON object of format '+'{"$<operator>": "<parameter>"}.')
                 op, arg = next(iter(agg.items()))
                 if op == "$sum":
                     if arg == 1:
@@ -508,8 +510,8 @@ class ModelQueryToolset(metaclass=ModelQueryToolsetMeta):
     extra_instructions: str = None
     "Extra instruction to provide, for example on when to query this collection"
 
-    output_format = "json"
-    "Can be set to either 'json' or 'csv'"
+    output_format : str = "json"
+    "Desired output format, the corresponding DRF renderer class must be registered in the DJANGO_MCP_OUTPUT_RENDERER_CLASSES setting. By default JSONRenderer is used."
 
     output_as_resource = False
     "When set to true the MCP result will return the result as an embedded resource"
@@ -578,16 +580,6 @@ class _QueryExecutor:
         self.context = context
         self.request = request
 
-    @staticmethod
-    def _flatten_json(obj, parent_key='', sep=''):
-                items = []
-                for k, v in obj.items():
-                    new_key = f"{parent_key}{sep}{k}" if parent_key else k
-                    if isinstance(v, dict):
-                        items.extend(_QueryExecutor._flatten_json(v, new_key, sep='__').items())
-                    else:
-                        items.append((new_key, v))
-                return dict(items)
     def query(self, collection : str, search_pipeline: list[dict] = []):
         mql_model = self.query_tool_models.get(collection.lower())
         if not mql_model:
@@ -600,31 +592,44 @@ class _QueryExecutor:
                                            allowed_models=instance.get_published_models(),
                                            extended_operators=instance.extra_filters))
 
-        if ret and instance.output_format == "csv":
+        if not ret:
+            if instance.output_as_resource:
+                return ["No results found"]
+            else:
+                return ret
 
-            # Flatten all rows
-            ret = [_QueryExecutor._flatten_json(row) for row in ret]
+        renderer = _output_formats.get(instance.output_format)
 
-            # Serialize to CSV
-            with io.StringIO() as output:
-                writer = csv.DictWriter(output, fieldnames=ret[0].keys())
-                writer.writeheader()
-                writer.writerows(ret)
-                ret = output.getvalue()
+        assert renderer is not None, "Bad output format, but we were meant to have validated it at startup"
 
+        if not isinstance(renderer, BaseRenderer):
+            renderer = renderer()
+        ret = renderer.render(ret)
 
         if instance.output_as_resource:
             if not ret: return ["No results found"]
-            return ["Results attached", EmbeddedResource(
-                type="resource",
-                resource=TextResourceContents(
-                    uri="file://query_tool/output.csv",
-                    mimeType="text/csv" if instance.output_format == "csv" else "application/json",
-                    text=ret
-                )
-            )]
+            if (renderer.media_type.startswith("application/") and  "json" in renderer.media_type) \
+                    or renderer.media_type.startswith("text/"):
+                return ["Results attached", EmbeddedResource(
+                    type="resource",
+                    resource=TextResourceContents(
+                        uri=f"resource://query_result/{renderer.format}",
+                        mimeType=renderer.media_type,
+                        text=ret
+                    )
+                )]
+            else:
+                return ["Results attached", EmbeddedResource(
+                    type="resource",
+                    resource=BlobResourceContents(
+                        uri=f"resource://query_result/{renderer.format}",
+                        mimeType=renderer.media_type,
+                        blob=base64.b64encode(ret).decode('utf-8')
+                    )
+                )]
+
         else:
-            return ret
+            return [TextContent(type="text", text=ret)]
 
 
 
@@ -633,6 +638,8 @@ class QueryTool:
         self.query_tool_models = {}
 
     def add_query_tool_model(self, cls):
+        if cls.output_format not in _output_formats:
+            raise ValueError(f"Output format {cls.output_format} is not supported, available formats: {', '.join(_output_formats.keys())}. Verify your DJANGO_MCP_OUTPUT_RENDERER_CLASSES setting.")
         self.query_tool_models[cls.model._meta.model_name.lower()] = cls
 
     def get_instructions(self):
@@ -688,8 +695,14 @@ Documents conform the following JSON Schema
         tool.fn = _ToolsetMethodCaller(self.executor_factory, "query", "_context", False)
         return [tool]
 
+_output_formats=None
 
 def init(global_mcp_server : 'DjangoMCP'):
+    global _output_formats
+    renderers_classes = (import_string(renderer_class) for renderer_class in
+                           getattr(settings, "DJANGO_MCP_OUTPUT_RENDERER_CLASSES", ["rest_framework.renderers.JSONRenderer"]))
+    _output_formats = {renderer_class.format: renderer_class for renderer_class in renderers_classes}
+
     server_tools = {}
     for name, cls in ModelQueryToolsetMeta.registry.items():
         cls.mcp_server = cls.mcp_server or global_mcp_server
@@ -703,21 +716,4 @@ def init(global_mcp_server : 'DjangoMCP'):
     for server, tool in server_tools.items():
         server.register_mcptoolset(tool)
 
-    @global_mcp_server.resource("data://query_tool/{output_id}")
-    def query_tool_resource(output_id: str):
-        """
-        Resource to retrieve the query tool output.
-        """
-        import csv
-        import random
-        from datetime import datetime, timedelta
 
-        with io.BytesIO() as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(["date", "quantity"])
-            start_date = datetime(2020, 1, 1)
-            for i in range(10000):
-                date = start_date + timedelta(days=i)
-                quantity = random.randint(1, 100)
-                writer.writerow([date.strftime("%Y-%m-%d"), quantity])
-            return csvfile.getvalue().encode('utf-8')
