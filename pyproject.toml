@@ -37,4 +37,6 @@ include = "mcp_server"
 djangorestframework = "^3.16.0"
 pytest-django = "^4.11.1"
 uvicorn = "^0.34.3"
+djangorestframework-csv = "^3.0.2"
+drf-excel = "^2.5.3"
 
