@@ -1,10 +1,17 @@
+import base64
+import csv
+import io
+import json
 import logging
+from random import randint
 
 from asgiref.sync import sync_to_async
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.db.models import Q, QuerySet, Count, Sum, Model
 from django.db.models import CharField, TextField
 from django.db.models import Avg, Max, Min
+from mcp.types import EmbeddedResource, TextResourceContents, BlobResourceContents
 
 logger = logging.getLogger(__name__)
 
@@ -501,6 +508,12 @@ class ModelQueryToolset(metaclass=ModelQueryToolsetMeta):
     extra_instructions: str = None
     "Extra instruction to provide, for example on when to query this collection"
 
+    output_format = "json"
+    "Can be set to either 'json' or 'csv'"
+
+    output_as_resource = False
+    "When set to true the MCP result will return the result as an embedded resource"
+
     @classmethod
     def get_text_search_fields(cls):
         if hasattr(cls, "_effective_text_search_fields"):
@@ -564,17 +577,57 @@ class _QueryExecutor:
         self.query_tool_models = query_tool_models
         self.context = context
         self.request = request
-    def query(self, collection : str, search_pipeline: list[dict] = []) -> list[dict]:
+
+    @staticmethod
+    def _flatten_json(obj, parent_key='', sep=''):
+                items = []
+                for k, v in obj.items():
+                    new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                    if isinstance(v, dict):
+                        items.extend(_QueryExecutor._flatten_json(v, new_key, sep='__').items())
+                    else:
+                        items.append((new_key, v))
+                return dict(items)
+    def query(self, collection : str, search_pipeline: list[dict] = []):
         mql_model = self.query_tool_models.get(collection.lower())
         if not mql_model:
             raise ValueError(f"No such collection, available collections: {', '.join(self.query_tool_models.keys())}")
         instance = mql_model(self.context, self.request)
         qs = instance.get_queryset()
 
-        return list(apply_json_mango_query(qs, search_pipeline,
+        ret = list(apply_json_mango_query(qs, search_pipeline,
                                            text_search_fields=instance.get_text_search_fields(),
                                            allowed_models=instance.get_published_models(),
                                            extended_operators=instance.extra_filters))
+
+        if ret and instance.output_format == "csv":
+
+            # Flatten all rows
+            ret = [_QueryExecutor._flatten_json(row) for row in ret]
+
+            # Serialize to CSV
+            with io.StringIO() as output:
+                writer = csv.DictWriter(output, fieldnames=ret[0].keys())
+                writer.writeheader()
+                writer.writerows(ret)
+                ret = output.getvalue()
+
+
+        if instance.output_as_resource:
+            if not ret: return ["No results found"]
+            return ["Results attached", EmbeddedResource(
+                type="resource",
+                resource=TextResourceContents(
+                    uri="file://query_tool/output.csv",
+                    mimeType="text/csv" if instance.output_format == "csv" else "application/json",
+                    text=ret
+                )
+            )]
+        else:
+            return ret
+
+
+
 class QueryTool:
     def __init__(self):
         self.query_tool_models = {}
@@ -649,3 +702,22 @@ def init(global_mcp_server : 'DjangoMCP'):
 
     for server, tool in server_tools.items():
         server.register_mcptoolset(tool)
+
+    @global_mcp_server.resource("data://query_tool/{output_id}")
+    def query_tool_resource(output_id: str):
+        """
+        Resource to retrieve the query tool output.
+        """
+        import csv
+        import random
+        from datetime import datetime, timedelta
+
+        with io.BytesIO() as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["date", "quantity"])
+            start_date = datetime(2020, 1, 1)
+            for i in range(10000):
+                date = start_date + timedelta(days=i)
+                quantity = random.randint(1, 100)
+                writer.writerow([date.strftime("%Y-%m-%d"), quantity])
+            return csvfile.getvalue().encode('utf-8')

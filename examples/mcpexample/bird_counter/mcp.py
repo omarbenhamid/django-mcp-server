@@ -11,6 +11,9 @@ from .views import LocationAPIView, LocationAPIUpdateView, LocationAPIListView
 class BirdQuery(ModelQueryToolset):
     model = Bird
 
+    output_format = "csv"
+    # output_as_resource = True # as of today milage with this may vary, claude supports it if it is not tool long, ADK fails to process the response ...
+
     def get_queryset(self):
         """self.request can be used to filter the queryset"""
         return super().get_queryset().filter(location__isnull=False)
