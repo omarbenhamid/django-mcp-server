@@ -8,15 +8,15 @@
 
 **Django MCP Server** is an implementation of the **Model Context Protocol (MCP)** extension for Django. This module allows **MCP Clients** and **AI agents** to interact with **any Django application** seamlessly.
 
-🚀 Django-Style declarative style tools to allow AI Agents and MCP clients tool to interact with Django.
+🚀 Django-Style declarative style tools to allow AI Agents and MCP clients tool to interact with Django.<br/>
+🚀 Expose Django models for AI Agents and MCP Tools to query in 2 lines of code in a safe way.<br/>
+🚀 Convert Django Rest Framework APIs to MCP tools with one annotation.<br/>
+✅ Working on all apps (WSGI and ASGI) without infrastructure change.<br/>
+🤖 Any MCP Client or AI Agent supporting MCP , (Google Agent Developement Kit, Claude AI, Claude Desktop ...) can interact with your application.
 
-🚀 Expose Django models for AI Agents and MCP Tools to query in 2 lines of code in a safe way.
+Many thanks 🙏 to [all the contributor community](https://github.com/omarbenhamid/django-mcp-server/graphs/contributors)
 
-🚀 Convert Django Rest Framework APIs to MCP tools with one annotation.
-
-✅ Working on all apps (WSGI and ASGI) without infrastructure change.  
-
-🤖 Any MCP Client or AI Agent supporting MCP , (Google Agent Developement Kit, Claude Desktop ...) can interact with your application.
+Maintained ✨ with care by [Smart GTS software consulting](https://www.smart-gts.com/#contact).
 
 Licensed under the **MIT License**.
 
@@ -160,6 +160,17 @@ if __name__ == "__main__":
 ```
 
 Replace `http://localhost:8000/mcp` by the acutal Django host and run this cript.
+
+### Test in Claude Desktop
+
+As of **June 2025** Claude AI support now MCPs through streamable HTTP protocol with preè-requisites :
+* 
+* Setup OAuth2, for example :
+  * Install [Django Oauth Toolkit](https://django-oauth-toolkit.readthedocs.io/en/latest/))
+  * Include `'oauth2_provider.contrib.rest_framework.OAuth2Authentication'` in `DJANGO_MCP_AUTHENTICATION_CLASSES` in `settings.py`
+* Claude AI requires Dynamic Client Registration. as of today [it is not supported by django oauth toolkit](github.com/jazzband/django-oauth-toolkit/issues/670) but you can use [This Django Oauth Toolkit DCR Add-On](https://github.com/omarbenhamid/django-oauth-toolkit-dcr)
+* Unless you implement OAuth server Metadata RFC correctly, you need to keep OAuth2 URLS (`/register`, `/token` and `/authorize` at their default location).
+
 
 ### Test in Claude Desktop
 
