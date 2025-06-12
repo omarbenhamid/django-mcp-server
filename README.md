@@ -11,7 +11,8 @@
 🚀 Django-Style declarative style tools to allow AI Agents and MCP clients tool to interact with Django.<br/>
 🚀 Expose Django models for AI Agents and MCP Tools to query in 2 lines of code in a safe way.<br/>
 🚀 Convert Django Rest Framework APIs to MCP tools with one annotation.<br/>
-✅ Working on all apps (WSGI and ASGI) without infrastructure change.<br/>
+✅ Working on both WSGI and ASGI without infrastructure change.<br/>
+✅ Validated as a Remote Integration with Claude AI.<br/>
 🤖 Any MCP Client or AI Agent supporting MCP , (Google Agent Developement Kit, Claude AI, Claude Desktop ...) can interact with your application.
 
 Many thanks 🙏 to [all the contributor community](https://github.com/omarbenhamid/django-mcp-server/graphs/contributors)
@@ -161,7 +162,7 @@ if __name__ == "__main__":
 
 Replace `http://localhost:8000/mcp` by the acutal Django host and run this cript.
 
-### Test in Claude Desktop
+### Use from Claude AI
 
 As of **June 2025** Claude AI support now MCPs through streamable HTTP protocol with preè-requisites :
 * 
