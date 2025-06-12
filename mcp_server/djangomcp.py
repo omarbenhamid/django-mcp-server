@@ -11,6 +11,7 @@ from typing import Any, TYPE_CHECKING
 import anyio
 from asgiref.sync import sync_to_async, async_to_sync
 from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import QuerySet, Model, TextField, CharField
 from mcp.server import FastMCP
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
@@ -83,6 +84,8 @@ async def _call_starlette_handler(django_request: HttpRequest, session_manager: 
         A Django HttpResponse
     """
     django_request_ctx.set(django_request)
+    body = json.dumps(django_request.data, cls=DjangoJSONEncoder).encode("utf-8")
+
     # Build ASGI scope
     scope: Scope = {
         "type": "http",
@@ -90,8 +93,8 @@ async def _call_starlette_handler(django_request: HttpRequest, session_manager: 
         "method": django_request.method,
         "headers": [
             (key.lower().encode("latin-1"), value.encode("latin-1"))
-            for key, value in django_request.headers.items()
-        ],
+            for key, value in django_request.headers.items() if key.lower() != "content-length"
+        ] + [("Content-Length", str(len(body)).encode("latin-1"))],
         "path": django_request.path,
         "raw_path": django_request.get_full_path().encode("utf-8"),
         "query_string": django_request.META["QUERY_STRING"].encode("latin-1"),
@@ -100,8 +103,7 @@ async def _call_starlette_handler(django_request: HttpRequest, session_manager: 
         "server": (django_request.get_host(), django_request.get_port()),
     }
 
-    # Provide receive function to return body (once)
-    body = django_request.body
+
 
     async def receive() -> Receive:
         return {
@@ -196,7 +198,7 @@ class DjangoMCP(FastMCP):
                     request.session = session
                 else:
                     return HttpResponse(status=404, content="Session not found")
-            elif request.body and request.data.get('method') == 'initialize':
+            elif request.data.get('method') == 'initialize':
                 # FIXME: Trick to read body before data to avoid DRF complaining
                 request.session = self.SessionStore()
             else:
