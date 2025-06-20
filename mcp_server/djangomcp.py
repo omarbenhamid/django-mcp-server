@@ -8,6 +8,7 @@ from importlib import import_module
 from types import SimpleNamespace
 from typing import Any, TYPE_CHECKING
 from django.utils.module_loading import import_string
+from rest_framework.permissions import AllowAny
 
 import anyio
 from asgiref.sync import sync_to_async, async_to_sync
@@ -45,6 +46,13 @@ def get_mcp_tool_authentication_classes():
         import_string(cls)
         for cls in getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', [])
     ] if use_tool_authentication_classes else []
+
+
+def get_mcp_tool_permissions_classes(view_class: type["GenericAPIView"]):
+    use_tool_permissions_classes = getattr(
+        settings, 'DJANGO_MCP_USE_TOOL_PERMISSIONS_CLASSES', False
+    )
+    return view_class.permission_classes if use_tool_permissions_classes else []
 
 
 def drf_serialize_output(serializer_class: type[Serializer]):
@@ -486,6 +494,7 @@ class _DRFCreateAPIViewCallerTool:
         kwargs = dict(
             filter_backends=[],
             authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
             handle_exception=raise_exception
         )
         if actions is not None:
@@ -518,6 +527,7 @@ class _DRFListAPIViewCallerTool:
         kwargs = dict(
             filter_backends=[],
             authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
             handle_exception=raise_exception,
             pagination_class=None,
         )
@@ -552,6 +562,7 @@ class _DRFUpdateAPIViewCallerTool:
         kwargs = dict(
             filter_backends=[],
             authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
             handle_exception=raise_exception
         )
         if actions is not None:
@@ -585,6 +596,7 @@ class _DRFDeleteAPIViewCallerTool:
         kwargs = dict(
             filter_backends=[],
             authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
             handle_exception=raise_exception
         )
         if actions is not None:
