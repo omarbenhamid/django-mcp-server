@@ -7,6 +7,7 @@ from collections import defaultdict
 from importlib import import_module
 from types import SimpleNamespace
 from typing import Any, TYPE_CHECKING
+from django.utils.module_loading import import_string
 
 import anyio
 from asgiref.sync import sync_to_async, async_to_sync
@@ -34,6 +35,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 django_request_ctx = contextvars.ContextVar("django_request")
+
+
+def get_mcp_tool_authentication_classes():
+    use_tool_authentication_classes = getattr(
+        settings, 'DJANGO_MCP_USE_TOOL_AUTHENTICATION_CLASSES', False
+    )
+    return [
+        import_string(cls)
+        for cls in getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', [])
+    ] if use_tool_authentication_classes else []
 
 
 def drf_serialize_output(serializer_class: type[Serializer]):
@@ -454,6 +465,12 @@ class _DRFRequestWrapper(HttpRequest):
         self.path = f'/_djangomcpserver/{mcp_server.name}'
         if id:
             self.path += f"/{id}"
+        request_wrapper_postprocessing_hooks = [
+            import_string(cls)
+            for cls in getattr(settings, "DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS", [])
+        ]
+        for hook in request_wrapper_postprocessing_hooks:
+            hook(self, mcp_request)
 
 
 class _DRFCreateAPIViewCallerTool:
@@ -468,7 +485,7 @@ class _DRFCreateAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
             handle_exception=raise_exception
         )
         if actions is not None:
@@ -500,8 +517,9 @@ class _DRFListAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=[],
-            handle_exception=raise_exception
+            authentication_classes=get_mcp_tool_authentication_classes(),
+            handle_exception=raise_exception,
+            pagination_class=None,
         )
         if actions is not None:
             kwargs['actions'] = actions
@@ -533,7 +551,7 @@ class _DRFUpdateAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
             handle_exception=raise_exception
         )
         if actions is not None:
@@ -566,7 +584,7 @@ class _DRFDeleteAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
             handle_exception=raise_exception
         )
         if actions is not None:
