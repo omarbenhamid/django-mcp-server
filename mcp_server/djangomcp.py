@@ -641,7 +641,7 @@ def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
         (server or global_mcp_server).register_drf_update_tool(view_class, name=name, instructions=instructions,
-                                                               body_schema=body_schema, actions=None)
+                                                               body_schema=body_schema, actions=actions)
         return view_class
 
     if args:
