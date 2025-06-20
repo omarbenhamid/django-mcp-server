@@ -50,7 +50,7 @@ def get_mcp_tool_authentication_classes():
 
 def get_mcp_tool_permissions_classes(view_class: type["GenericAPIView"]):
     use_tool_permissions_classes = getattr(
-        settings, 'DJANGO_MCP_USE_TOOL_PERMISSIONS_CLASSES', False
+        settings, 'DJANGO_MCP_USE_TOOL_PERMISSION_CLASSES', False
     )
     return view_class.permission_classes if use_tool_permissions_classes else []
 
