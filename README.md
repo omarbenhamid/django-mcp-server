@@ -382,10 +382,11 @@ work here..
 ### Secondary MCP endpoint
 in `mcp.py`
 ```python
+from mcp_server.djangomcp import DjangoMCP
 
 second_mcp = DjangoMCP(name="altserver")
 
-@second_mcp.tools()
+@second_mcp.tool()
 async def my_tool():
     ...
 ```
@@ -393,7 +394,9 @@ async def my_tool():
 in urls.py 
 ```python
 ...
-    path("altmcp", MCPServerStreamableHttpView.as_view(mcp_server=second_server))
+from yourapp.mcp import second_mcp
+...
+path("altmcp", MCPServerStreamableHttpView.as_view(mcp_server=second_mcp))
 ...
 ```
 

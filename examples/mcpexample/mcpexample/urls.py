@@ -21,10 +21,11 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 
 from mcp_server.views import MCPServerStreamableHttpView
+from bird_counter.mcp import second_mcp
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include('mcp_server.urls')),
-    path("mcpunsecured", MCPServerStreamableHttpView.as_view())
-
+    path("mcpunsecured", MCPServerStreamableHttpView.as_view()),
+    path("altmcp", MCPServerStreamableHttpView.as_view(mcp_server=second_mcp))
 ]
