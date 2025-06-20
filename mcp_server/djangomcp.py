@@ -7,6 +7,8 @@ from collections import defaultdict
 from importlib import import_module
 from types import SimpleNamespace
 from typing import Any, TYPE_CHECKING
+from django.utils.module_loading import import_string
+from rest_framework.permissions import AllowAny
 
 import anyio
 from asgiref.sync import sync_to_async, async_to_sync
@@ -34,6 +36,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 django_request_ctx = contextvars.ContextVar("django_request")
+
+
+def get_mcp_tool_authentication_classes():
+    use_tool_authentication_classes = getattr(
+        settings, 'DJANGO_MCP_USE_TOOL_AUTHENTICATION_CLASSES', False
+    )
+    return [
+        import_string(cls)
+        for cls in getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', [])
+    ] if use_tool_authentication_classes else []
+
+
+def get_mcp_tool_permissions_classes(view_class: type["GenericAPIView"]):
+    use_tool_permissions_classes = getattr(
+        settings, 'DJANGO_MCP_USE_TOOL_PERMISSION_CLASSES', False
+    )
+    return view_class.permission_classes if use_tool_permissions_classes else []
 
 
 def drf_serialize_output(serializer_class: type[Serializer]):
@@ -237,7 +256,7 @@ class DjangoMCP(FastMCP):
         return toolset._add_tools_to(self._tool_manager)
 
     def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
-                                 body_schema:dict=None):
+                                 body_schema:dict=None, actions=None):
         """
         Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
         :param view_class: The DRF view subclassing CreateModelMixin.
@@ -256,7 +275,7 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_CreateTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFCreateAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFCreateAPIViewCallerTool(self, view_class, actions=actions))
 
         if body_schema is not None:
             tool.parameters['properties']['body'] = body_schema
@@ -277,7 +296,7 @@ class DjangoMCP(FastMCP):
                 logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
                 raise
 
-    def register_drf_list_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_list_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None, actions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_list():
@@ -288,10 +307,10 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_ListTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class, actions=actions))
 
     def register_drf_update_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
-                                 body_schema:dict=None):
+                                 body_schema:dict=None, actions=None):
         """
         Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
         :param view_class: The DRF view subclassing CreateModelMixin.
@@ -310,7 +329,7 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_UpdateTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFUpdateAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFUpdateAPIViewCallerTool(self, view_class, actions=actions))
 
         # Extract schema for a specific serializer manually
         if body_schema is not None:
@@ -332,7 +351,7 @@ class DjangoMCP(FastMCP):
                 logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
                 raise
 
-    def register_drf_destroy_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_destroy_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None, actions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_delete(id):
@@ -343,7 +362,7 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_DeleteTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFDeleteAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFDeleteAPIViewCallerTool(self, view_class, actions=actions))
 
 
 
@@ -454,10 +473,16 @@ class _DRFRequestWrapper(HttpRequest):
         self.path = f'/_djangomcpserver/{mcp_server.name}'
         if id:
             self.path += f"/{id}"
+        request_wrapper_postprocessing_hooks = [
+            import_string(cls)
+            for cls in getattr(settings, "DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS", [])
+        ]
+        for hook in request_wrapper_postprocessing_hooks:
+            hook(self, mcp_request)
 
 
 class _DRFCreateAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, CreateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF CreateModelMixin")
         self.mcp_server = mcp_server
@@ -465,10 +490,18 @@ class _DRFCreateAPIViewCallerTool:
 
         def raise_exception(exp):
             raise exp
+
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
         
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, body: dict):
         # Create a request
@@ -483,16 +516,26 @@ class _DRFCreateAPIViewCallerTool:
 
 
 class _DRFListAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, ListModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF ListModelMixin")
         self.mcp_server = mcp_server
         self.view_class = view_class
         def raise_exception(exp):
             raise exp
+
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
+            handle_exception=raise_exception,
+            pagination_class=None,
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self):
         # Create a request
@@ -507,7 +550,7 @@ class _DRFListAPIViewCallerTool:
 
 
 class _DRFUpdateAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, UpdateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF UpdateModelMixin")
         self.mcp_server = mcp_server
@@ -516,9 +559,17 @@ class _DRFUpdateAPIViewCallerTool:
         def raise_exception(exp):
             raise exp
 
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, id, body: dict):
         # Create a request
@@ -533,7 +584,7 @@ class _DRFUpdateAPIViewCallerTool:
 
 
 class _DRFDeleteAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, DestroyModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF DestroyModelMixin")
         self.mcp_server = mcp_server
@@ -542,9 +593,17 @@ class _DRFDeleteAPIViewCallerTool:
         def raise_exception(exp):
             raise exp
 
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=get_mcp_tool_authentication_classes(),
+            permission_classes=get_mcp_tool_permissions_classes(view_class),
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, id):
         # Create a request
@@ -558,7 +617,7 @@ class _DRFDeleteAPIViewCallerTool:
             raise
 
 
-def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None, body_schema:dict=None):
+def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None, body_schema:dict=None, actions=None):
     """
     Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
 
@@ -571,7 +630,7 @@ def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
         (server or global_mcp_server).register_drf_create_tool(view_class, name=name, instructions=instructions,
-                                                               body_schema=body_schema)
+                                                               body_schema=body_schema, actions=actions)
         return view_class
 
     if args:
@@ -580,7 +639,7 @@ def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None
         return decorator
 
 
-def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None, actions=None):
     """
     Function or Decorator to register a DRF ListModelMixin view as a MCP Toolset.
 
@@ -590,7 +649,7 @@ def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_list_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_list_tool(view_class, name=name, instructions=instructions, actions=actions)
         return view_class
 
     if args:
@@ -600,7 +659,7 @@ def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
 
 
 def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None,
-                                 body_schema:dict=None):
+                                 body_schema:dict=None, actions=None):
     """
     Function or Decorator to register a DRF UpdateModelMixin view as a MCP Toolset.
 
@@ -612,7 +671,7 @@ def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
         (server or global_mcp_server).register_drf_update_tool(view_class, name=name, instructions=instructions,
-                                                               body_schema=body_schema)
+                                                               body_schema=body_schema, actions=actions)
         return view_class
 
     if args:
@@ -621,7 +680,7 @@ def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None
         return decorator
 
 
-def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=None, actions=None):
     """
     Function or Decorator to register a DRF UpdateModelMixin view as a MCP Toolset.
 
@@ -631,7 +690,7 @@ def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=Non
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_destroy_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_destroy_tool(view_class, name=name, instructions=instructions, actions=actions)
         return view_class
 
     if args:
