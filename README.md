@@ -245,10 +245,33 @@ drf_publish_update_mcp_tool(MyDRFAPIView, instructions="Use this tool to update 
 ```
 
 
-**IMPORTANT** Notice that **builti-in authentication classes are disabled** along with filter_backends, that's because
-the MCP authentication is used. 
+**IMPORTANT** 
+
+Notice that **builti-in authentication classes are disabled** by default along with filter_backends, permission_classes and pagination_class, that's because
+the MCP authentication is used. If you want to use your original authentication classes, set `DJANGO_MCP_AUTHENTICATION_CLASSES` in settings to `True`. 
+
+You can also set `DJANGO_MCP_USE_TOOL_PERMISSION_CLASSES` to `True` if you want to maintain your permissions.
+
+Since the pagination_class is also disabled, you will need to account for that if you're using an existing paginated DRF view (`self.paginator` will be `None`).
 
 
+
+### Django Rest Framework Request handling
+
+The library uses its own wrapped request object. If you have additional fields from the original DRF request that need to be copied
+over to the MCP request - do so via `DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS` setting in django settings:
+
+```python 
+def bird_counter_request_hook(mcp_request, drf_request):
+    mcp_request.original_request_field = getattr(drf_request, "original_request_field", None)
+
+```
+
+```python
+DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS = [
+    "bird_counter.hooks.hooks.bird_counter_request_hook",
+]
+```
 
 
 ### Django Rest Framework Serializer integration

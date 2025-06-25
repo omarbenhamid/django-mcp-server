@@ -138,3 +138,7 @@ DJANGO_MCP_OUTPUT_RENDERER_CLASSES = [
 ]
 
 DJANGO_MCP_GET_SERVER_INSTRUCTIONS_TOOL = True
+
+DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS = [
+    "bird_counter.hooks.hooks.bird_counter_request_hook",
+]
