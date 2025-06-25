@@ -269,7 +269,7 @@ def bird_counter_request_hook(mcp_request, drf_request):
 
 ```python
 DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS = [
-    "bird_counter.hooks.hooks.bird_counter_request_hook",
+    "bird_counter.hooks.bird_counter_request_hook",
 ]
 ```
 
