@@ -671,7 +671,7 @@ def drf_publish_update_mcp_tool(
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
     :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
-    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass.
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'put': 'update'}'}
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
@@ -693,7 +693,7 @@ def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=Non
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
-    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass.
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'delete': 'destroy'}'}
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
