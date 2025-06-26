@@ -245,10 +245,12 @@ drf_publish_update_mcp_tool(MyDRFAPIView, instructions="Use this tool to update 
 ```
 
 
-**IMPORTANT** Notice that **builti-in authentication classes are disabled** along with filter_backends, that's because
-the MCP authentication is used. 
+**IMPORTANT** 
 
+Notice that **builti-in authentication classes are disabled** by default along with filter_backends, permission_classes and pagination_class, that's because
+the MCP authentication is used.
 
+Since the pagination_class is also disabled, you will need to account for that if you're using an existing paginated DRF view (`self.paginator` will be `None`).
 
 
 ### Django Rest Framework Serializer integration

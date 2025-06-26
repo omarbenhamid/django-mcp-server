@@ -3,33 +3,26 @@ import functools
 import inspect
 import json
 import logging
-from collections import defaultdict
 from importlib import import_module
+from io import BytesIO
 from types import SimpleNamespace
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-import anyio
 from asgiref.sync import sync_to_async, async_to_sync
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import QuerySet, Model, TextField, CharField
+from django.db.models import QuerySet
+from django.http import HttpResponse, HttpRequest
+from django.utils.module_loading import import_string
 from mcp.server import FastMCP
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-
-from django.http import HttpResponse, HttpRequest
 from rest_framework.mixins import CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin
 from rest_framework.serializers import Serializer
-from starlette.types import Scope, Receive, Send
 from starlette.datastructures import Headers
-from io import BytesIO
-
-import warnings
-
-from mcp_server.query_tool import apply_json_mango_query, generate_json_schema, \
-    PIPELINE_DSL_SPEC
+from starlette.types import Scope, Receive, Send
 
 if TYPE_CHECKING:
-    from rest_framework.generics import GenericAPIView
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +43,11 @@ def drf_serialize_output(serializer_class: type[Serializer]):
     :param serializer_class:
     :return:
     """
+
     def annotator(fn):
         fn.__dmcp_drf_serializer = serializer_class
         return fn
+
     return annotator
 
 
@@ -72,7 +67,7 @@ class _SyncToolCallWrapper:
             ret = list(ret)
         serializer_class = getattr(self.fn, '__dmcp_drf_serializer', None)
         if serializer_class is not None:
-             ret = serializer_class(ret).data
+            ret = serializer_class(ret).data
         return ret
 
 
@@ -92,9 +87,9 @@ async def _call_starlette_handler(django_request: HttpRequest, session_manager: 
         "http_version": "1.1",
         "method": django_request.method,
         "headers": [
-            (key.lower().encode("latin-1"), value.encode("latin-1"))
-            for key, value in django_request.headers.items() if key.lower() != "content-length"
-        ] + [("Content-Length", str(len(body)).encode("latin-1"))],
+                       (key.lower().encode("latin-1"), value.encode("latin-1"))
+                       for key, value in django_request.headers.items() if key.lower() != "content-length"
+                   ] + [("Content-Length", str(len(body)).encode("latin-1"))],
         "path": django_request.path,
         "raw_path": django_request.get_full_path().encode("utf-8"),
         "query_string": django_request.META["QUERY_STRING"].encode("latin-1"),
@@ -102,8 +97,6 @@ async def _call_starlette_handler(django_request: HttpRequest, session_manager: 
         "client": (django_request.META.get("REMOTE_ADDR"), 0),
         "server": (django_request.get_host(), django_request.get_port()),
     }
-
-
 
     async def receive() -> Receive:
         return {
@@ -162,7 +155,7 @@ class _ToolsetMethodCaller:
         return method(*args, **kwargs)
 
 
-MCP_SESSION_ID_HDR="Mcp-Session-Id"
+MCP_SESSION_ID_HDR = "Mcp-Session-Id"
 
 
 # FIXME: shall I reimplement the necessary without the
@@ -172,7 +165,7 @@ class DjangoMCP(FastMCP):
     def __init__(self, name=None, instructions=None, stateless=False):
         # Prevent extra server settings as we do not use the embedded server
         super().__init__(name or "django_mcp_server", instructions)
-        self.stateless=stateless
+        self.stateless = stateless
         engine = import_module(settings.SESSION_ENGINE)
         self.SessionStore = engine.SessionStore
 
@@ -237,13 +230,14 @@ class DjangoMCP(FastMCP):
         return toolset._add_tools_to(self._tool_manager)
 
     def register_drf_create_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
-                                 body_schema:dict=None):
+                                 body_schema: dict = None, actions=None):
         """
         Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
         :param view_class: The DRF view subclassing CreateModelMixin.
         :param name: the tool name, can be auto gnerated
         :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
         :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'post': 'create'}
         :return:
         """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -256,7 +250,7 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_CreateTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFCreateAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFCreateAPIViewCallerTool(self, view_class, actions=actions))
 
         if body_schema is not None:
             tool.parameters['properties']['body'] = body_schema
@@ -272,12 +266,13 @@ class DjangoMCP(FastMCP):
                         view_class.serializer_class())
                 except Exception:
                     logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
-                                "to the tool registration")
+                                    "to the tool registration")
             except Exception:
-                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
+                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema",
+                                exc_info=True)
                 raise
 
-    def register_drf_list_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_list_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None, actions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_list():
@@ -288,16 +283,17 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_ListTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFListAPIViewCallerTool(self, view_class, actions=actions))
 
     def register_drf_update_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None,
-                                 body_schema:dict=None):
+                                 body_schema: dict = None, actions=None):
         """
         Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
         :param view_class: The DRF view subclassing CreateModelMixin.
         :param name: the tool name, can be auto gnerated
         :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
         :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'put': 'update'}
         :return:
         """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -310,7 +306,7 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_UpdateTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFUpdateAPIViewCallerTool(self, view_class))
+        tool.fn = sync_to_async(_DRFUpdateAPIViewCallerTool(self, view_class, actions=actions))
 
         # Extract schema for a specific serializer manually
         if body_schema is not None:
@@ -329,10 +325,11 @@ class DjangoMCP(FastMCP):
                     logger.critical("DRF does not support schema generation, you must provide a body_schema parameter "
                                     "to the tool registration")
             except Exception:
-                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema", exc_info=True)
+                logger.critical(f"Error extracting schema for {view_class}, you must provide body_schema",
+                                exc_info=True)
                 raise
 
-    def register_drf_destroy_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None):
+    def register_drf_destroy_tool(self, view_class: type("GenericAPIView"), name=None, instructions=None, actions=None):
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
 
         async def _dumb_delete(id):
@@ -343,14 +340,12 @@ class DjangoMCP(FastMCP):
             name=name or f"{view_class.__name__}_DeleteTool",
             description=instructions or view_class.__doc__
         )
-        tool.fn = sync_to_async(_DRFDeleteAPIViewCallerTool(self, view_class))
-
+        tool.fn = sync_to_async(_DRFDeleteAPIViewCallerTool(self, view_class, actions=actions))
 
 
 global_mcp_server = DjangoMCP(**getattr(settings, 'DJANGO_MCP_GLOBAL_SERVER_CONFIG', {}))
 
-
-mqs_dep_warned=False
+mqs_dep_warned = False
 
 
 class ToolsetMeta(type):
@@ -409,7 +404,8 @@ class MCPToolset(metaclass=ToolsetMeta):
         ret = []
         # ITerate all the methods whose name does not start with _ and register them with mcp_server.add_tool
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
-            if not callable(method) or name.startswith("_"): continue
+            if not callable(method) or name.startswith("_"):
+                continue
             tool = tool_manager.add_tool(sync_to_async(method))
             if tool.context_kwarg is None:
                 forward_context = False
@@ -429,7 +425,7 @@ def init():
 
     for _name, cls in ToolsetMeta.iter_all():
         cls.mcp_server.register_mcptoolset(cls())
-            
+
     from . import query_tool
     query_tool.init(global_mcp_server)
 
@@ -457,7 +453,7 @@ class _DRFRequestWrapper(HttpRequest):
 
 
 class _DRFCreateAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, CreateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF CreateModelMixin")
         self.mcp_server = mcp_server
@@ -465,10 +461,18 @@ class _DRFCreateAPIViewCallerTool:
 
         def raise_exception(exp):
             raise exp
-        
+
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=[],
+            permission_classes=view_class.permission_classes,
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, body: dict):
         # Create a request
@@ -483,16 +487,27 @@ class _DRFCreateAPIViewCallerTool:
 
 
 class _DRFListAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, ListModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF ListModelMixin")
         self.mcp_server = mcp_server
         self.view_class = view_class
+
         def raise_exception(exp):
             raise exp
+
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=[],
+            permission_classes=view_class.permission_classes,
+            handle_exception=raise_exception,
+            pagination_class=None,
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self):
         # Create a request
@@ -507,7 +522,7 @@ class _DRFListAPIViewCallerTool:
 
 
 class _DRFUpdateAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, UpdateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF UpdateModelMixin")
         self.mcp_server = mcp_server
@@ -516,13 +531,22 @@ class _DRFUpdateAPIViewCallerTool:
         def raise_exception(exp):
             raise exp
 
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=[],
+            permission_classes=view_class.permission_classes,
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, id, body: dict):
         # Create a request
-        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "PUT", id=id, body_json=body)
+        request = _DRFRequestWrapper(self.mcp_server, django_request_ctx.get(SimpleNamespace()), "PUT", id=id,
+                                     body_json=body)
 
         # Create the view
         try:
@@ -533,7 +557,7 @@ class _DRFUpdateAPIViewCallerTool:
 
 
 class _DRFDeleteAPIViewCallerTool:
-    def __init__(self, mcp_server, view_class):
+    def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, DestroyModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF DestroyModelMixin")
         self.mcp_server = mcp_server
@@ -542,9 +566,17 @@ class _DRFDeleteAPIViewCallerTool:
         def raise_exception(exp):
             raise exp
 
+        kwargs = dict(
+            filter_backends=[],
+            authentication_classes=[],
+            permission_classes=view_class.permission_classes,
+            handle_exception=raise_exception
+        )
+        if actions is not None:
+            kwargs['actions'] = actions
+
         # Disable built in tauth
-        self.view = view_class.as_view(filter_backends=[], authentication_classes=[],
-                                       handle_exception=raise_exception)
+        self.view = view_class.as_view(**kwargs)
 
     def __call__(self, id):
         # Create a request
@@ -558,20 +590,29 @@ class _DRFDeleteAPIViewCallerTool:
             raise
 
 
-def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None, body_schema:dict=None):
+def drf_publish_create_mcp_tool(
+        *args,
+        name=None,
+        instructions=None,
+        server=None,
+        body_schema: dict | None = None,
+        actions: dict | None = None,
+):
     """
     Function or Decorator to register a DRF CreateModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
     :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'post': 'create'}
 
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
+
     def decorator(view_class):
         (server or global_mcp_server).register_drf_create_tool(view_class, name=name, instructions=instructions,
-                                                               body_schema=body_schema)
+                                                               body_schema=body_schema, actions=actions)
         return view_class
 
     if args:
@@ -580,17 +621,20 @@ def drf_publish_create_mcp_tool(*args, name=None, instructions=None, server=None
         return decorator
 
 
-def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None, actions: dict | None = None):
     """
     Function or Decorator to register a DRF ListModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'get': 'list'}
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
+
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_list_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_list_tool(view_class, name=name, instructions=instructions,
+                                                             actions=actions)
         return view_class
 
     if args:
@@ -599,20 +643,28 @@ def drf_publish_list_mcp_tool(*args, name=None, instructions=None, server=None):
         return decorator
 
 
-def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None,
-                                 body_schema:dict=None):
+def drf_publish_update_mcp_tool(
+        *args,
+        name=None,
+        instructions=None,
+        server=None,
+        body_schema: dict | None = None,
+        actions: dict | None = None,
+):
     """
     Function or Decorator to register a DRF UpdateModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
     :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'put': 'update'}'}
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
+
     def decorator(view_class):
         (server or global_mcp_server).register_drf_update_tool(view_class, name=name, instructions=instructions,
-                                                               body_schema=body_schema)
+                                                               body_schema=body_schema, actions=actions)
         return view_class
 
     if args:
@@ -621,17 +673,20 @@ def drf_publish_update_mcp_tool(*args, name=None, instructions=None, server=None
         return decorator
 
 
-def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=None):
+def drf_publish_destroy_mcp_tool(*args, name=None, instructions=None, server=None, actions: dict | None = None):
     """
     Function or Decorator to register a DRF UpdateModelMixin view as a MCP Toolset.
 
     :param instructions: Instructions to provide to the MCP client.
     :param server: The server to use, if not set, the global one will be used.
+    :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'delete': 'destroy'}'}
     :return:
     """
     assert len(args) <= 1, "You must provide the DRF view or nothing as argument"
+
     def decorator(view_class):
-        (server or global_mcp_server).register_drf_destroy_tool(view_class, name=name, instructions=instructions)
+        (server or global_mcp_server).register_drf_destroy_tool(view_class, name=name, instructions=instructions,
+                                                                actions=actions)
         return view_class
 
     if args:
