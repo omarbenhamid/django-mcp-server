@@ -237,6 +237,7 @@ class DjangoMCP(FastMCP):
         :param name: the tool name, can be auto gnerated
         :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
         :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'post': 'create'}
         :return:
         """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
@@ -292,6 +293,7 @@ class DjangoMCP(FastMCP):
         :param name: the tool name, can be auto gnerated
         :param instructions: the instructions to provide to the MCP client, mandatory if the view does not have a docstring.
         :param body_schema: JSON Schema, optional in reasonably rescent DRF that support schema generation. If DRF does not support schema geneation this becomes mandatory
+        :param actions: DRF action mapping for ViewSet initialization. Omit if the class that is added is not a ViewSet subclass. Example: {'put': 'update'}
         :return:
         """
         assert instructions or view_class.__doc__, "You need to provide instructions or the class must have a docstring"
