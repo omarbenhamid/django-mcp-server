@@ -5,8 +5,8 @@ import json
 import logging
 from importlib import import_module
 from io import BytesIO
-from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from types import SimpleNamespace, MethodType
+from typing import TYPE_CHECKING, Type
 
 from asgiref.sync import sync_to_async, async_to_sync
 from django.conf import settings
@@ -445,18 +445,28 @@ class _DRFRequestWrapper(HttpRequest):
         self._read_started = False
         self.user = mcp_request.user
         self.session = mcp_request.session
+        self.original_request = mcp_request
         self.path = f'/_djangomcpserver/{mcp_server.name}'
         if id:
             self.path += f"/{id}"
-        request_wrapper_postprocessing_hooks = [
-            import_string(cls)
-            for cls in getattr(settings, "DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS", [])
-        ]
-        for hook in request_wrapper_postprocessing_hooks:
-            hook(self, mcp_request)
 
 
-class _DRFCreateAPIViewCallerTool:
+class BaseAPIViewCallerTool:
+    view: Type["APIView"]
+
+    @staticmethod
+    def _patched_initialize_request(self, request, *args, **kwargs):
+        original_request = request.original_request
+        original_request.method = request.method
+        return original_request
+
+    def __init__(self, view_class, method: str, **kwargs):
+        view_class.initialize_request = self._patched_initialize_request
+        self.view = view_class.as_view(**kwargs)
+        self.method = method
+
+
+class _DRFCreateAPIViewCallerTool(BaseAPIViewCallerTool):
     def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, CreateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF CreateModelMixin")
@@ -476,7 +486,7 @@ class _DRFCreateAPIViewCallerTool:
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        self.view = view_class.as_view(**kwargs)
+        super().__init__(view_class, "POST", **kwargs)
 
     def __call__(self, body: dict):
         # Create a request
@@ -490,7 +500,7 @@ class _DRFCreateAPIViewCallerTool:
             raise
 
 
-class _DRFListAPIViewCallerTool:
+class _DRFListAPIViewCallerTool(BaseAPIViewCallerTool):
     def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, ListModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF ListModelMixin")
@@ -511,7 +521,7 @@ class _DRFListAPIViewCallerTool:
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        self.view = view_class.as_view(**kwargs)
+        super().__init__(view_class, "GET", **kwargs)
 
     def __call__(self):
         # Create a request
@@ -525,7 +535,7 @@ class _DRFListAPIViewCallerTool:
             raise
 
 
-class _DRFUpdateAPIViewCallerTool:
+class _DRFUpdateAPIViewCallerTool(BaseAPIViewCallerTool):
     def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, UpdateModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF UpdateModelMixin")
@@ -545,7 +555,7 @@ class _DRFUpdateAPIViewCallerTool:
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        self.view = view_class.as_view(**kwargs)
+        super().__init__(view_class, "PUT", **kwargs)
 
     def __call__(self, id, body: dict):
         # Create a request
@@ -560,7 +570,7 @@ class _DRFUpdateAPIViewCallerTool:
             raise
 
 
-class _DRFDeleteAPIViewCallerTool:
+class _DRFDeleteAPIViewCallerTool(BaseAPIViewCallerTool):
     def __init__(self, mcp_server, view_class, actions=None):
         if not issubclass(view_class, DestroyModelMixin):
             raise ValueError(f"{view_class} must be a subclass of DRF DestroyModelMixin")
@@ -580,7 +590,7 @@ class _DRFDeleteAPIViewCallerTool:
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        self.view = view_class.as_view(**kwargs)
+        super().__init__(view_class, "DELETE", **kwargs)
 
     def __call__(self, id):
         # Create a request
