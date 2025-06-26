@@ -17,7 +17,7 @@
 
 Many thanks 🙏 to [all the contributor community](https://github.com/omarbenhamid/django-mcp-server/graphs/contributors)
 
-Maintained ✨ with care by [Smart GTS software consulting](https://www.smart-gts.com/#contact).
+Maintained ✨ with care by [Smart GTS software engineering](https://www.smart-gts.com/#contact).
 
 Licensed under the **MIT License**.
 
