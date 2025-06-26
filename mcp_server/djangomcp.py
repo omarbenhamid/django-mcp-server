@@ -448,12 +448,6 @@ class _DRFRequestWrapper(HttpRequest):
         self.path = f'/_djangomcpserver/{mcp_server.name}'
         if id:
             self.path += f"/{id}"
-        request_wrapper_postprocessing_hooks = [
-            import_string(cls)
-            for cls in getattr(settings, "DJANGO_MCP_REQUEST_POSTPROCESSING_HOOKS", [])
-        ]
-        for hook in request_wrapper_postprocessing_hooks:
-            hook(self, mcp_request)
 
 
 class _DRFCreateAPIViewCallerTool:
