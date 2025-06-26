@@ -29,16 +29,6 @@ logger = logging.getLogger(__name__)
 django_request_ctx = contextvars.ContextVar("django_request")
 
 
-def get_mcp_tool_authentication_classes():
-    use_tool_authentication_classes = getattr(
-        settings, 'DJANGO_MCP_USE_TOOL_AUTHENTICATION_CLASSES', False
-    )
-    return [
-        import_string(cls)
-        for cls in getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', [])
-    ] if use_tool_authentication_classes else []
-
-
 def drf_serialize_output(serializer_class: type[Serializer]):
     """
     This annotation will process the tool result thorugh the given DRF serializer
@@ -478,7 +468,7 @@ class _DRFCreateAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=get_mcp_tool_authentication_classes(),
+            authentication_classes=[],
             permission_classes=view_class.permission_classes,
             handle_exception=raise_exception
         )
@@ -512,7 +502,7 @@ class _DRFListAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=get_mcp_tool_authentication_classes(),
+            authentication_classes=[],
             permission_classes=view_class.permission_classes,
             handle_exception=raise_exception,
             pagination_class=None,
@@ -547,7 +537,7 @@ class _DRFUpdateAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=get_mcp_tool_authentication_classes(),
+            authentication_classes=[],
             permission_classes=view_class.permission_classes,
             handle_exception=raise_exception
         )
@@ -582,7 +572,7 @@ class _DRFDeleteAPIViewCallerTool:
 
         kwargs = dict(
             filter_backends=[],
-            authentication_classes=get_mcp_tool_authentication_classes(),
+            authentication_classes=[],
             permission_classes=view_class.permission_classes,
             handle_exception=raise_exception
         )
