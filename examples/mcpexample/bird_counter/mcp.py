@@ -67,6 +67,15 @@ async def get_species_count(name : str):
 
     return ret.count
 
+# To create a secondary MCP endpoint with its own isolated toolset, you can use the DjangoMCP constructor
+from mcp_server.djangomcp import DjangoMCP
+
+second_mcp = DjangoMCP(name="altserver")
+
+@second_mcp.tool()
+async def get_bird_news():
+    """ Get the latest bird news """
+    return "Scientists have discovered a new bird species!"
 
 drf_publish_create_mcp_tool(LocationAPIView)
 
