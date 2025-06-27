@@ -434,16 +434,16 @@ class _DRFRequestWrapper(HttpRequest):
 
     def __init__(self, mcp_server, mcp_request, method, body_json=None, id=None):
         super().__init__()
-        serialized_body = json.dumps(body_json).encode("utf-8") if body_json else b''
+        self._serialized_body = json.dumps(body_json).encode("utf-8") if body_json else b''
         self.method = method
         self.content_type = "application/json"
         self.META = {
             'CONTENT_TYPE': 'application/json',
             'HTTP_ACCEPT': 'application/json',
-            'CONTENT_LENGTH': len(serialized_body)
+            'CONTENT_LENGTH': len(self._serialized_body)
         }
 
-        self._stream = BytesIO(serialized_body)
+        self._stream = BytesIO(self._serialized_body)
         self._read_started = False
         self.user = mcp_request.user
         self.session = mcp_request.session
@@ -459,13 +459,13 @@ class BaseAPIViewCallerTool:
     @staticmethod
     def _patched_initialize_request(self, request, *args, **kwargs):
         original_request = request.original_request
+        original_request.request = request
         original_request.method = request.method
         return original_request
 
-    def __init__(self, view_class, method: str, **kwargs):
+    def __init__(self, view_class, **kwargs):
         view_class.initialize_request = self._patched_initialize_request
         self.view = view_class.as_view(**kwargs)
-        self.method = method
 
 
 class _DRFCreateAPIViewCallerTool(BaseAPIViewCallerTool):
@@ -488,7 +488,7 @@ class _DRFCreateAPIViewCallerTool(BaseAPIViewCallerTool):
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        super().__init__(view_class, "POST", **kwargs)
+        super().__init__(view_class, **kwargs)
 
     def __call__(self, body: dict):
         # Create a request
@@ -523,7 +523,7 @@ class _DRFListAPIViewCallerTool(BaseAPIViewCallerTool):
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        super().__init__(view_class, "GET", **kwargs)
+        super().__init__(view_class, **kwargs)
 
     def __call__(self):
         # Create a request
@@ -557,7 +557,7 @@ class _DRFUpdateAPIViewCallerTool(BaseAPIViewCallerTool):
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        super().__init__(view_class, "PUT", **kwargs)
+        super().__init__(view_class, **kwargs)
 
     def __call__(self, id, body: dict):
         # Create a request
@@ -592,7 +592,7 @@ class _DRFDeleteAPIViewCallerTool(BaseAPIViewCallerTool):
             kwargs['actions'] = actions
 
         # Disable built in tauth
-        super().__init__(view_class, "DELETE", **kwargs)
+        super().__init__(view_class, **kwargs)
 
     def __call__(self, id):
         # Create a request
