@@ -30,17 +30,18 @@ async def _check_client():
             print("Tools discovered in server:")
             tool_list = await session.list_tools()
             for tool in tool_list.tools:
-                print(f'\t{tool.name}: {tool.description}')
+                print(f'\n\t{tool.name}: {tool.description}')
+                print(f'\tParameters: {tool.inputSchema}')
 
             print("Resources discovered in server:")
             resource_list = await session.list_resources()
             for resource in resource_list.resources:
-                print(f'\t{resource.name}: {resource.description}')
+                print(f'\n\t{resource.name}: {resource.description}')
 
             print("Prompts discovered in server:")
             prompt_list = await session.list_prompts()
             for prompt in prompt_list.prompts:
-                print(f'\t{prompt.name}: {prompt.description}')
+                print(f'\n\t{prompt.name}: {prompt.description}')
 
     async with anyio.create_task_group() as tg:
         tg.start_soon(run_server)
