@@ -24,8 +24,10 @@ from mcp_server.views import MCPServerStreamableHttpView
 
 
 # Register MCP Server View and bypass default DRF default permission / authentication classes
+base_url = getattr(settings, "DJANGO_MCP_ENDPOINT", "mcp")
+
 urlpatterns = [
-    path("mcp", MCPServerStreamableHttpView.as_view(
+    path(base_url, MCPServerStreamableHttpView.as_view(
         permission_classes=[IsAuthenticated] if getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', None) else [],
         authentication_classes=[import_string(cls) for cls in getattr(settings, 'DJANGO_MCP_AUTHENTICATION_CLASSES', [])]
     ), name="mcp_server_streamable_http_endpoint"),
