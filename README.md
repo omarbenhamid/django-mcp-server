@@ -105,7 +105,6 @@ from mcp_server import MCPToolset
 from django.core.mail import send_mail
 
 class MyAITools(MCPToolset):
-    # This method will not be published as a tool because it starts with _
     def add(self, a: int, b: int) -> list[dict]:
         """A service to add two numbers together"""
         return a+b
