@@ -1,10 +1,7 @@
-from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import render
 from django.utils.decorators import method_decorator
-from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from mcp.server import FastMCP
+from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
 
 from mcp_server.djangomcp import global_mcp_server
@@ -14,12 +11,15 @@ from mcp_server.djangomcp import global_mcp_server
 class MCPServerStreamableHttpView(APIView):
     mcp_server = global_mcp_server
 
+    @extend_schema(exclude=True)
     def get(self, request, *args, **kwargs):
         return self.mcp_server.handle_django_request(request)
 
+    @extend_schema(exclude=True)
     def post(self, request, *args, **kwargs):
         return self.mcp_server.handle_django_request(request)
 
+    @extend_schema(exclude=True)
     def delete(self, request, *args, **kwargs):
         self.mcp_server.destroy_session(request)
         return HttpResponse(status=200, content="Session destroyed")
