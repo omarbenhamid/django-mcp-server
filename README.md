@@ -123,6 +123,14 @@ class MyAITools(MCPToolset):
 
 ---
 
+### Verify with MCP Inspect
+
+Use the management commande mcp_inspect to ensure your tools are correctly declared : 
+
+```bash
+python manage.py mcp_inspect
+```
+
 ### Use the MCP with any MCP Client
 
 The mcp tool is now published on your Django App at `/mcp` endpoint. 
