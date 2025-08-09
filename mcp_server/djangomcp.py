@@ -471,6 +471,8 @@ class _DRFRequestWrapper(HttpRequest):
             'CONTENT_LENGTH': len(self._serialized_body)
         }
 
+        self.data = self._extract_request_data(mcp_request, body_json)
+        self.query_params = {}
         self._stream = BytesIO(self._serialized_body)
         self._read_started = False
         self.user = mcp_request.user
@@ -481,15 +483,36 @@ class _DRFRequestWrapper(HttpRequest):
             self.path += f"/{id}"
 
 
+    def _extract_request_data(self, mcp_request, body_json):
+        """ Parsing data packaged by the MCP protocol """
+        if body_json is not None:
+            return body_json
+
+        if hasattr(mcp_request, 'data') and mcp_request.data:
+            try:
+                params = mcp_request.data.get("params")
+                if params:
+                    arguments = params.get("arguments")
+                    if arguments:
+                        if "body" in arguments:
+                            return arguments["body"]
+                        else:
+                            return arguments
+
+                return mcp_request.data
+
+            except (AttributeError, TypeError) as e:
+                logger.warning(f"Failed to extract data from MCP request: {e}")
+
+        return {}
+
+
 class BaseAPIViewCallerTool:
     view: Type["APIView"]
 
     @staticmethod
     def _patched_initialize_request(self, request, *args, **kwargs):
-        original_request = request.original_request
-        original_request.request = request
-        original_request.method = request.method
-        return original_request
+        return request
 
     def __init__(self, view_class, **kwargs):
         view_class.initialize_request = self._patched_initialize_request
